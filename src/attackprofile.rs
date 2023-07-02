@@ -7,26 +7,24 @@ const ROLL_MIN: i32 = 1;
 const ROLL_MAX_D20: i32 = 21;
 
 #[derive(Debug)]
-pub struct TurnSimulation {
+pub struct AttackProfile {
     number_mh_attacks: i32,
     number_oh_attacks: i32,
     hit_modifier: i32,
     main_hand: Weapon,
     off_hand: Weapon,
-    //modifier_options: Vec<bool>,
     dice_roller: ThreadRng,
 }
 
-impl TurnSimulation {
+impl AttackProfile {
 
-    pub fn new(number_mh_attacks: i32, number_oh_attacks: i32, hit_modifier: i32, main_hand: Weapon, off_hand: Weapon) -> TurnSimulation {
-        TurnSimulation {
+    pub fn new(number_mh_attacks: i32, number_oh_attacks: i32, hit_modifier: i32, main_hand: Weapon, off_hand: Weapon) -> AttackProfile {
+        AttackProfile {
             number_mh_attacks: number_mh_attacks,
             number_oh_attacks: number_oh_attacks,
             hit_modifier: hit_modifier,
             main_hand: main_hand,
             off_hand: off_hand,
-            //modifier_options: Vec::<bool>::new(),
             dice_roller: rand::thread_rng(),
         }
     }
@@ -35,19 +33,19 @@ impl TurnSimulation {
         self.dice_roller.gen_range(ROLL_MIN..ROLL_MAX_D20) + self.hit_modifier
     }
 
-    pub fn roll_turn(&mut self, target_ac: i32) -> i32 {
+    pub fn roll_turn(&mut self, target_ac: &i32) -> i32 {
 
         let mut dmg = 0;
 
         for _ in 0..self.number_mh_attacks {
-            dmg += match self.roll_attack() >= target_ac {
+            dmg += match self.roll_attack() >= *target_ac {
                 true => self.main_hand.roll_damage(&mut self.dice_roller),
                 false => 0,
             };
         }
 
         for _ in 0..self.number_oh_attacks {
-            dmg += match self.roll_attack() >= target_ac {
+            dmg += match self.roll_attack() >= *target_ac {
                 true => self.off_hand.roll_damage(&mut self.dice_roller),
                 false => 0,
             };
@@ -72,7 +70,7 @@ mod tests {
     #[test]
     fn test_roll_attack() {
 
-        let mut ts = TurnSimulation::new(
+        let mut ts = AttackProfile::new(
             0,
             0,
             0,
@@ -93,56 +91,56 @@ mod tests {
     #[test]
     fn test_roll_turn_succeed_mh() {
 
-        let mut ts = TurnSimulation::new(
+        let mut ts = AttackProfile::new(
             1,
             0,
             1,
             Weapon::new(1, 6, 1),
             Weapon::create_empty()
         );
-        let roll_damage = ts.roll_turn(0);
+        let roll_damage = ts.roll_turn(&0);
         assert!(roll_damage > 0);
     }
 
     #[test]
     fn test_roll_turn_succeed_oh() {
 
-        let mut ts = TurnSimulation::new(
+        let mut ts = AttackProfile::new(
             0,
             1,
             1,
             Weapon::create_empty(),
             Weapon::new(1, 6, 1)
         );
-        let roll_damage = ts.roll_turn(0);
+        let roll_damage = ts.roll_turn(&0);
         assert!(roll_damage > 0);
     }
 
     #[test]
     fn test_roll_turn_succeed_both() {
 
-        let mut ts = TurnSimulation::new(
+        let mut ts = AttackProfile::new(
             1,
             1,
             1,
             Weapon::new(1, 6, 1),
             Weapon::new(1, 6, 1)
         );
-        let roll_damage = ts.roll_turn(0);
+        let roll_damage = ts.roll_turn(&0);
         assert!(roll_damage >= 2);
     }
 
     #[test]
     fn test_roll_turn_fail() {
 
-        let mut ts = TurnSimulation::new(
+        let mut ts = AttackProfile::new(
             1,
             1,
             0,
             Weapon::new(1, 6, 1),
             Weapon::new(1, 6, 1)
         );
-        let roll_damage = ts.roll_turn(21);
+        let roll_damage = ts.roll_turn(&21);
         assert_eq!(roll_damage, 0);
     }
 }
