@@ -5,19 +5,19 @@ use std::error::Error;
 #[macro_use]
 extern crate simple_error;
 
-const ROLL_MIN: u8 = 1;
-const ROLL_MAX_D20: u8 = 21;
+const ROLL_MIN: i32 = 1;
+const ROLL_MAX_D20: i32 = 21;
 
 #[derive(Debug)]
 pub struct Weapon {
-    number_die: u8,
-    max_roll: u8,
-    damage_modifier: u8,
+    number_die: i32,
+    max_roll: i32,
+    damage_modifier: i32,
 }
 
 impl Weapon {
 
-    pub fn new(number_die: u8, die_size: u8, damage_modifier: u8) -> Weapon {
+    pub fn new(number_die: i32, die_size: i32, damage_modifier: i32) -> Weapon {
         Weapon {
             number_die: number_die,
             max_roll: die_size + 1,
@@ -29,6 +29,15 @@ impl Weapon {
         Weapon::new(0, 0, 0)
     }
 
+    fn convert_value(input_value: &str, err_message: &str) -> Result<i32, Box<dyn Error>> {
+
+        let value: i32 = match input_value.parse() {
+            Ok(x) => x,
+            _ => bail!(err_message),
+        };
+        Ok(value)
+    }
+
     pub fn from_notation_string(notation: &str) -> Result<Weapon, Box<dyn Error>> {
         /* Expected notation is in the standard '1d8+5' style. May replace this with a regex later.
         */
@@ -37,48 +46,28 @@ impl Weapon {
         //let get_value = my_vector.get(1).unwrap();
 
         // Step 1 - extract the positions of interest
-
-        let first_vector: Vec<&str> = notation.split("d").collect();
-
-        let (n_die, remainder) = match first_vector.len() {
-            2 => {
-                let n_die = first_vector.get(0).unwrap();
-                let remainder = first_vector.get(1).unwrap();
-                (n_die, remainder)
+        let token_vector: Vec<&str> = notation.split(['d', '+']).collect();
+        let (n_die, die_size, dmg_modifier) = match token_vector.len() {
+            3 => {
+                let n_die = token_vector.get(0).unwrap();
+                let die_size = token_vector.get(1).unwrap();
+                let dmg_modifier = token_vector.get(2).unwrap();
+                (n_die, die_size, dmg_modifier)
             },
             _ => bail!(err_message),
         };
 
-        let second_vector: Vec<&str> = remainder.split("+").collect();
-        let (die_size, dmg_modifier) = match second_vector.len() {
-            2 => {
-                let die_size = second_vector.get(0).unwrap();
-                let dmg_modifier = second_vector.get(1).unwrap();
-                (die_size, dmg_modifier)
-            },
-            _ => bail!(err_message),
-        };
+        // Step 2 - Attempt the type conversions to get to i32
+        let n_die: i32 = Weapon::convert_value(n_die, &err_message)?;
+        let die_size: i32 = Weapon::convert_value(die_size, &err_message)?;
+        let dmg_modifier: i32 = Weapon::convert_value(dmg_modifier, &err_message)?;
 
-        // Attempt the type conversions to get to u8
-        let n_die: i32 = match n_die.parse() {
-            Ok(x) => x,
-            _ => bail!(err_message),
-        };
-        let die_size: i32 = match die_size.parse() {
-            Ok(x) => x,
-            _ => bail!(err_message),
-        };
-        let dmg_modifier: i32 = match dmg_modifier.parse() {
-            Ok(x) => x,
-            _ => bail!(err_message),
-        };
-
-        Ok(Weapon::new(n_die as u8, die_size as u8, dmg_modifier as u8))
+        Ok(Weapon::new(n_die, die_size, dmg_modifier))
     }
 
-    fn roll_damage(&self, dice_roller: &mut ThreadRng) -> u8 {
+    fn roll_damage(&self, dice_roller: &mut ThreadRng) -> i32 {
 
-        let mut dmg_roll = 0;
+        let mut dmg_roll: i32 = 0;
         for _ in 0..self.number_die {
             dmg_roll += dice_roller.gen_range(ROLL_MIN..self.max_roll)
         }
@@ -89,9 +78,9 @@ impl Weapon {
 
 #[derive(Debug)]
 pub struct TurnSimulation {
-    number_mh_attacks: u8,
-    number_oh_attacks: u8,
-    hit_modifier: u8,
+    number_mh_attacks: i32,
+    number_oh_attacks: i32,
+    hit_modifier: i32,
     main_hand: Weapon,
     off_hand: Weapon,
     //modifier_options: Vec<bool>,
@@ -100,7 +89,7 @@ pub struct TurnSimulation {
 
 impl TurnSimulation {
 
-    pub fn new(number_mh_attacks: u8, number_oh_attacks: u8, hit_modifier: u8, main_hand: Weapon, off_hand: Weapon) -> TurnSimulation {
+    pub fn new(number_mh_attacks: i32, number_oh_attacks: i32, hit_modifier: i32, main_hand: Weapon, off_hand: Weapon) -> TurnSimulation {
         TurnSimulation {
             number_mh_attacks: number_mh_attacks,
             number_oh_attacks: number_oh_attacks,
@@ -112,11 +101,11 @@ impl TurnSimulation {
         }
     }
 
-    fn roll_attack(&mut self) -> u8 {
+    fn roll_attack(&mut self) -> i32 {
         self.dice_roller.gen_range(ROLL_MIN..ROLL_MAX_D20) + self.hit_modifier
     }
 
-    pub fn roll_turn(&mut self, target_ac: u8) -> u8 {
+    pub fn roll_turn(&mut self, target_ac: i32) -> i32 {
 
         let mut dmg = 0;
 
@@ -142,10 +131,10 @@ impl TurnSimulation {
 mod tests {
     use super::*;
 
-    fn unpack_roll_vector(roll_capture: &Vec<u8>) -> (u8, u8) {
+    fn unpack_roll_vector(roll_capture: &Vec<i32>) -> (i32, i32) {
 
-        let obs_min = *roll_capture.iter().min().unwrap();
-        let obs_max = *roll_capture.iter().max().unwrap();
+        let obs_min: i32 = *roll_capture.iter().min().unwrap();
+        let obs_max: i32 = *roll_capture.iter().max().unwrap();
 
         (obs_min, obs_max)
     }
@@ -159,6 +148,25 @@ mod tests {
         assert_eq!(weapon.number_die, 0);
         assert_eq!(weapon.max_roll, 1);
         assert_eq!(weapon.damage_modifier, 0);
+    }
+
+    #[test]
+    fn test_weapon_convert_value() {
+
+        let input: &str = "3";
+        let output = Weapon::convert_value(input, "something went wrong").unwrap();
+
+        assert_eq!(output, 3);
+
+    }
+
+    #[test]
+    fn test_weapon_convert_value_fail() {
+
+        let input: &str = "a";
+        let result = Weapon::convert_value(input, "something went wrong");
+        assert!(result.is_err());
+
     }
 
     #[test]
@@ -179,26 +187,26 @@ mod tests {
     fn test_weapon_from_notation_string_fail_1() {
         // First fail case - missing the 'd' from the expected notation.
 
-        let r = Weapon::from_notation_string("16+3");
-        assert!(r.is_err());
+        let result = Weapon::from_notation_string("16+3");
+        assert!(result.is_err());
     }
 
     #[test]
     fn test_weapon_from_notation_string_fail_2() {
         // Second fail case - missing the '+' from the expected notation.
 
-        let r = Weapon::from_notation_string("1d63");
-        assert!(r.is_err());
+        let result = Weapon::from_notation_string("1d63");
+        assert!(result.is_err());
     }
 
     #[test]
     fn test_weapon_roll_damage() {
 
-        let damage_die = 8;
+        let damage_die: i32 = 8;
         let mut roller = rand::thread_rng();
         let w = Weapon::new(1, damage_die, 0);
 
-        let mut roll_capture: Vec<u8> = Vec::new();
+        let mut roll_capture: Vec<i32> = Vec::new();
         for _ in 0..10000 {
             roll_capture.push(w.roll_damage(&mut roller));
         }
@@ -220,7 +228,7 @@ mod tests {
             Weapon::create_empty()
         );
 
-        let mut roll_capture: Vec<u8> = Vec::new();    
+        let mut roll_capture: Vec<i32> = Vec::new();    
         for _ in 0..10000 {
             roll_capture.push(ts.roll_attack());
         }
