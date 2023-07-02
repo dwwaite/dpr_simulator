@@ -1,9 +1,17 @@
-use dpr_simulator::{TurnSimulation,Weapon};
+mod weapon;
+use weapon::Weapon;
+
+mod turnsimluation;
+use turnsimluation::TurnSimulation;
 
 fn main() {
 
     // Standard 1d8 weapon, and a 1st level PC with +3 in main stat
-    let weapon = Weapon::new(1, 8, 3);
+    let weapon = match Weapon::from_notation_string("1d8+3") {
+        Ok(w) => w,
+        _ => Weapon::create_empty()
+    };
+
     let mut ts = TurnSimulation::new(
         2,
         0,
