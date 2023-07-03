@@ -12,13 +12,26 @@ use turnsimulation::process_simulation;
 
 fn main() {
 
+    // Parse and extract the user inputs
     let cli: Cli = Cli::parse();
+    eprint!("Unpacking user options...");
 
     // Need to handle errors in this statement in the future...
     let (mainhand_attack, mainhand_weapon) = unpack_mh_details(&cli).unwrap();
 
     // Also handle the unwrap here.
     let (offhand_attack, offhand_weapon) = unpack_oh_details(&cli).unwrap();
+
+    let ac_targets: Vec<i32> = vec![12, 14, 16, 18, 20];
+
+    eprintln!("Done!");
+
+    // Run the main simulation loop.
+    eprint!(
+        "Running simulation over {} rounds of combat and {} armour class values...",
+        &cli.number_turns,
+        ac_targets.len()
+    );
 
     let mut attack_profile = AttackProfile::new(
         mainhand_attack,
@@ -28,9 +41,15 @@ fn main() {
         offhand_weapon,
     );
 
-    let ac_targets: Vec<i32> = vec![12, 14, 16, 18, 20];
+    let simulation_result = process_simulation(&mut attack_profile, ac_targets, cli.number_turns);
+    eprintln!("Done!");
 
-    process_simulation(&mut attack_profile, ac_targets, cli.number_turns);
+    // Process final routine - save file or report failure
+    let final_message = match simulation_result {
+        Ok(df) => dpr_simulator::write_to_parquet(&cli.output, df),
+        Err(error) => Ok(format!("{}", error))
+    }.unwrap();
+    eprintln!("{}", final_message);
 }
 
 fn unpack_mh_details(cli: &Cli) -> Result<(i32, Weapon), Box<dyn Error>> {
@@ -58,6 +77,14 @@ fn unpack_oh_details(cli: &Cli) -> Result<(i32, Weapon), Box<dyn Error>> {
 #[derive(Parser)]
 struct Cli {
 
+    /// To-Hit modifier
+    #[arg(short, long, value_name = "TO HIT")]
+    to_hit: i32,
+
+    /// Path to save results (Apache parquet format)
+    #[arg(short, long, value_name = "OUTPUT FILE")]
+    output: String,
+
     /// Number of main-hand attackes to make per turn
     #[arg(short = 'm', long, value_name = "MAINHAND ATTACKS")]
     mainhand_attacks: i32,
@@ -67,18 +94,14 @@ struct Cli {
     mainhand_weapon: String,
 
     /// Number of off-hand attackes to make per turn (optional)
-    #[arg(short = 'o', long, value_name = "OFFHAND ATTACKS")]
+    #[arg(long, value_name = "OFFHAND ATTACKS")]
     offhand_attacks: Option<i32>,
 
     /// Details of the offhand weapon (optional)
     #[arg(long, value_name = "OFFHAND WEAPON")]
     offhand_weapon: Option<String>,
 
-    /// To-Hit modifier
-    #[arg(short, long, value_name = "TO HIT")]
-    to_hit: i32,
-
-    /// Number of turns to silmuate (default 1,000,000)
+    /// Number of turns to simulate (default 1,000,000)
     #[arg(short, long, value_name = "NUMBER TURNS", default_value_t = 1_000_000)]
     number_turns: i32,
 }
