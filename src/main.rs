@@ -1,14 +1,16 @@
 use clap::Parser;
-use std::error::Error;
+//use std::error::Error;
 
-mod weapon;
-use weapon::Weapon;
+mod damageelement;
+use damageelement::DamageElement;
 
+/*
 mod attackprofile;
 use attackprofile::AttackProfile;
 
 mod turnsimulation;
 use turnsimulation::process_simulation;
+*/
 
 fn main() {
 
@@ -17,61 +19,35 @@ fn main() {
     eprint!("Unpacking user options...");
 
     // Need to handle errors in this statement in the future...
-    let (mainhand_attack, mainhand_weapon) = unpack_mh_details(&cli).unwrap();
+    let (_mainhand_attack, mainhand_weapon) = unpack_mh_details(&cli);
+    let (_offhand_attack, _offhand_weapon) = unpack_oh_details(&cli);
 
-    // Also handle the unwrap here.
-    let (offhand_attack, offhand_weapon) = unpack_oh_details(&cli).unwrap();
+    let mut x = rand::thread_rng();
+    let _ = mainhand_weapon.roll_damage(&mut x, false);
 
-    let ac_targets: Vec<i32> = vec![12, 14, 16, 18, 20];
-
-    eprintln!("Done!");
-
-    // Run the main simulation loop.
-    eprint!(
-        "Running simulation over {} rounds of combat and {} armour class values...",
-        &cli.number_turns,
-        ac_targets.len()
-    );
-
-    let mut attack_profile = AttackProfile::new(
-        mainhand_attack,
-        offhand_attack,
-        cli.to_hit,
-        mainhand_weapon,
-        offhand_weapon,
-    );
-
-    let simulation_result = process_simulation(&mut attack_profile, ac_targets, cli.number_turns);
-    eprintln!("Done!");
-
-    // Process final routine - save file or report failure
-    let final_message = match simulation_result {
-        Ok(df) => dpr_simulator::write_to_parquet(&cli.output, df),
-        Err(error) => Ok(format!("{}", error))
-    }.unwrap();
-    eprintln!("{}", final_message);
+    //let ac_targets: Vec<i32> = vec![12, 14, 16, 18, 20];
 }
 
-fn unpack_mh_details(cli: &Cli) -> Result<(i32, Weapon), Box<dyn Error>> {
+fn unpack_mh_details(cli: &Cli) -> (i32, DamageElement) {
 
     let mainhand_attacks = &cli.mainhand_attacks;
-    let mainhand_weapon = Weapon::from_notation_string(&cli.mainhand_weapon)?;
+    let mainhand_weapon = DamageElement::from_notation_string(&cli.mainhand_weapon);
 
-    Ok((*mainhand_attacks, mainhand_weapon))
+    (*mainhand_attacks, mainhand_weapon)
 }
 
-fn unpack_oh_details(cli: &Cli) -> Result<(i32, Weapon), Box<dyn Error>> {
+fn unpack_oh_details(cli: &Cli) -> (i32, DamageElement) {
 
     let offhand_attacks: i32 = match cli.offhand_attacks {
         Some(o) => o,
         None => 0
     };
     let offhand_weapon = match &cli.offhand_weapon {
-        Some(s) => Weapon::from_notation_string(&s)?,
-        None => Weapon::create_empty(),
+        Some(s) => DamageElement::from_notation_string(&s),
+        None => DamageElement::create_empty(),
     };
 
-    Ok((offhand_attacks, offhand_weapon))
+    (offhand_attacks, offhand_weapon)
 }
 
 #[derive(Parser)]
