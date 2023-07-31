@@ -1,11 +1,8 @@
 use rand::Rng;
 use rand::rngs::ThreadRng;
-//use std::error::Error;
 use regex::Regex;
-//use simple_error::bail;
 
-#[derive(Debug)]
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct Die {
     roll_number: i32,
     roll_min: i32,
@@ -39,8 +36,7 @@ impl Die {
     }
 }
 
-#[derive(Debug)]
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct DamageElement {
     die_elements: Vec<Die>,
     static_element: i32,
