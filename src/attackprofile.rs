@@ -17,6 +17,20 @@ pub struct AttackProfile {
     dice_roller: ThreadRng,
 }
 
+impl PartialEq for AttackProfile {
+    fn eq(&self, other: &AttackProfile) -> bool {
+
+        let ac: bool = self.target_ac == other.target_ac;
+        let mh: bool = self.number_mh_attacks == other.number_mh_attacks;
+        let oh: bool = self.number_oh_attacks == other.number_oh_attacks;
+        let hit: bool = self.hit_modifier == other.hit_modifier;
+        let mh_d: bool = self.main_hand == other.main_hand;
+        let oh_d: bool = self.off_hand == other.off_hand;
+
+        ac & mh & oh & hit & mh_d & oh_d
+    }
+}
+
 impl AttackProfile {
 
     pub fn new(target_ac: i32, number_mh_attacks: i32, number_oh_attacks: i32, hit_modifier: i32, main_hand: DamageElement, off_hand: DamageElement) -> AttackProfile {
@@ -121,6 +135,26 @@ mod tests {
         for v in min_value..(max_value + 1) {
             assert!(obs_values.contains(&v));
         }
+    }
+
+    #[test]
+    fn test_partialeq_true() {
+        // Test the AttackProfile equality function where sides match.
+
+        let left = AttackProfile::new(1, 1, 1, 1, DamageElement::create_empty(), DamageElement::create_empty());
+        let right = AttackProfile::new(1, 1, 1, 1, DamageElement::create_empty(), DamageElement::create_empty());
+    
+        assert_eq!(left, right);
+    }
+
+    #[test]
+    fn test_partialeq_false() {
+        // Test the AttackProfile equality function where sides differ.
+
+        let left = AttackProfile::new(1, 1, 1, 1, DamageElement::create_empty(), DamageElement::create_empty());
+        let right = AttackProfile::new(2, 1, 1, 1, DamageElement::create_empty(), DamageElement::create_empty());
+    
+        assert_ne!(left, right);
     }
 
     #[test]
@@ -278,7 +312,7 @@ mod tests {
             DamageElement::from_notation_string("1d4")
         );
 
-        let (crit_capture, dmg_capture) = capture_roll_turns(&mut ap, 10_000);
+        let (crit_capture, dmg_capture) = capture_roll_turns(&mut ap, 100_000);
 
         // Check that expected values are found in the result
         //  0 to 3 crits per round
