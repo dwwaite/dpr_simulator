@@ -1,10 +1,8 @@
 use std::process::exit;
 
 use clap::Parser;
-//use std::error::Error;
 
 mod attackprofile;
-//use attackprofile::AttackProfile;
 
 mod damageelement;
 use damageelement::DamageElement;
@@ -13,14 +11,14 @@ mod turnsimulation;
 use turnsimulation::process_simulation;
 
 fn main() {
+    // Entry point for the tool interface.
 
-    // Parse and extract the user inputs
     let cli: Cli = Cli::parse();
 
     // Upack the optional off-hand options
     let offhand_attacks: i32 = match cli.offhand_attacks {
         Some(o) => o,
-        None => 0
+        None => 0,
     };
     let offhand_weapon: String = match cli.offhand_weapon {
         Some(s) => s,
@@ -34,7 +32,7 @@ fn main() {
         cli.mainhand_weapon,
         offhand_attacks,
         offhand_weapon,
-        cli.number_turns
+        cli.number_turns,
     ) {
         Ok(df) => df,
         Err(e) => {
@@ -42,12 +40,11 @@ fn main() {
             exit(1);
         }
     };
-
 }
 
 #[derive(Parser)]
 struct Cli {
-
+    // Build the CLI input arguments and options.
     /// To-Hit modifier
     #[arg(short = 't', long, value_name = "TO HIT")]
     to_hit: i32,

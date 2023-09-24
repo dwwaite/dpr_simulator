@@ -1,5 +1,5 @@
-use rand::Rng;
 use rand::rngs::ThreadRng;
+use rand::Rng;
 
 use crate::DamageElement;
 
@@ -19,7 +19,6 @@ pub struct AttackProfile {
 
 impl PartialEq for AttackProfile {
     fn eq(&self, other: &AttackProfile) -> bool {
-
         let ac: bool = self.target_ac == other.target_ac;
         let mh: bool = self.number_mh_attacks == other.number_mh_attacks;
         let oh: bool = self.number_oh_attacks == other.number_oh_attacks;
@@ -32,8 +31,14 @@ impl PartialEq for AttackProfile {
 }
 
 impl AttackProfile {
-
-    pub fn new(target_ac: i32, number_mh_attacks: i32, number_oh_attacks: i32, hit_modifier: i32, main_hand: DamageElement, off_hand: DamageElement) -> AttackProfile {
+    pub fn new(
+        target_ac: i32,
+        number_mh_attacks: i32,
+        number_oh_attacks: i32,
+        hit_modifier: i32,
+        main_hand: DamageElement,
+        off_hand: DamageElement,
+    ) -> AttackProfile {
         AttackProfile {
             target_ac: target_ac,
             number_mh_attacks: number_mh_attacks,
@@ -52,7 +57,7 @@ impl AttackProfile {
     fn roll_attack(&mut self) -> (bool, bool) {
         let d20_roll = self.roll_d20();
 
-        let is_crit = d20_roll == MAX_ROLL; 
+        let is_crit = d20_roll == MAX_ROLL;
         let is_hit = d20_roll + self.hit_modifier >= self.target_ac;
 
         // A critical is automatically a hit, so is for any reason a critical hit did not
@@ -61,10 +66,9 @@ impl AttackProfile {
     }
 
     pub fn roll_turn(&mut self) -> (i32, i32) {
-
         let mut total_damage = 0;
         let mut crit_counter: i32 = 0;
-    
+
         for _ in 0..self.number_mh_attacks {
             let (is_crit, is_hit) = self.roll_attack();
 
@@ -97,7 +101,10 @@ impl AttackProfile {
 mod tests {
     use super::*;
 
-    fn capture_roll_attack(input_profile: &mut AttackProfile, n_iterations: i32) -> (Vec<bool>, Vec<bool>) {
+    fn capture_roll_attack(
+        input_profile: &mut AttackProfile,
+        n_iterations: i32,
+    ) -> (Vec<bool>, Vec<bool>) {
         // Run the AttackProfile.roll_attack() function a pre-determined number of times and return
         //  the results as Vec<bool> structs.
 
@@ -113,7 +120,10 @@ mod tests {
         (crit_capture, hit_capture)
     }
 
-    fn capture_roll_turns(input_profile: &mut AttackProfile, n_iterations: i32) -> (Vec<i32>, Vec<i32>) {
+    fn capture_roll_turns(
+        input_profile: &mut AttackProfile,
+        n_iterations: i32,
+    ) -> (Vec<i32>, Vec<i32>) {
         // Run the AttackProfile.roll_turn() function a pre-determined number of times and return
         //  the results as Vec<i32> structs.
 
@@ -141,9 +151,23 @@ mod tests {
     fn test_partialeq_true() {
         // Test the AttackProfile equality function where sides match.
 
-        let left = AttackProfile::new(1, 1, 1, 1, DamageElement::create_empty(), DamageElement::create_empty());
-        let right = AttackProfile::new(1, 1, 1, 1, DamageElement::create_empty(), DamageElement::create_empty());
-    
+        let left = AttackProfile::new(
+            1,
+            1,
+            1,
+            1,
+            DamageElement::create_empty(),
+            DamageElement::create_empty(),
+        );
+        let right = AttackProfile::new(
+            1,
+            1,
+            1,
+            1,
+            DamageElement::create_empty(),
+            DamageElement::create_empty(),
+        );
+
         assert_eq!(left, right);
     }
 
@@ -151,9 +175,23 @@ mod tests {
     fn test_partialeq_false() {
         // Test the AttackProfile equality function where sides differ.
 
-        let left = AttackProfile::new(1, 1, 1, 1, DamageElement::create_empty(), DamageElement::create_empty());
-        let right = AttackProfile::new(2, 1, 1, 1, DamageElement::create_empty(), DamageElement::create_empty());
-    
+        let left = AttackProfile::new(
+            1,
+            1,
+            1,
+            1,
+            DamageElement::create_empty(),
+            DamageElement::create_empty(),
+        );
+        let right = AttackProfile::new(
+            2,
+            1,
+            1,
+            1,
+            DamageElement::create_empty(),
+            DamageElement::create_empty(),
+        );
+
         assert_ne!(left, right);
     }
 
@@ -167,14 +205,12 @@ mod tests {
             0,
             0,
             DamageElement::create_empty(),
-            DamageElement::create_empty()
+            DamageElement::create_empty(),
         );
 
         let mut roll_capture: Vec<i32> = Vec::new();
         for _ in 0..10000 {
-            roll_capture.push(
-                ap.roll_d20()
-            );
+            roll_capture.push(ap.roll_d20());
         }
 
         assert_eq!(1, *roll_capture.iter().min().unwrap());
@@ -192,7 +228,7 @@ mod tests {
             0,
             0,
             DamageElement::create_empty(),
-            DamageElement::create_empty()
+            DamageElement::create_empty(),
         );
 
         let (crit_capture, hit_capture) = capture_roll_attack(&mut ap, 10_000);
@@ -217,7 +253,7 @@ mod tests {
             0,
             0,
             DamageElement::create_empty(),
-            DamageElement::create_empty()
+            DamageElement::create_empty(),
         );
 
         let (crit_capture, hit_capture) = capture_roll_attack(&mut ap, 10_000);
@@ -241,7 +277,7 @@ mod tests {
             0,
             0,
             DamageElement::from_notation_string("1d6+1"),
-            DamageElement::create_empty()
+            DamageElement::create_empty(),
         );
 
         let (crit_capture, dmg_capture) = capture_roll_turns(&mut ap, 10_000);
@@ -251,7 +287,6 @@ mod tests {
         //  1d6+1 = 2 -> 7 for non-crit damage
         sweep_vector_range(&crit_capture, 0, 1);
         sweep_vector_range(&dmg_capture, 2, 7);
-
     }
 
     #[test]
@@ -264,7 +299,7 @@ mod tests {
             0,
             0,
             DamageElement::from_notation_string("1d6+1"),
-            DamageElement::create_empty()
+            DamageElement::create_empty(),
         );
 
         let (crit_capture, dmg_capture) = capture_roll_turns(&mut ap, 10_000);
@@ -286,7 +321,7 @@ mod tests {
             1,
             0,
             DamageElement::create_empty(),
-            DamageElement::from_notation_string("1d6+1")
+            DamageElement::from_notation_string("1d6+1"),
         );
 
         let (crit_capture, dmg_capture) = capture_roll_turns(&mut ap, 10_000);
@@ -309,7 +344,7 @@ mod tests {
             1,
             0,
             DamageElement::from_notation_string("1d6+1"),
-            DamageElement::from_notation_string("1d4")
+            DamageElement::from_notation_string("1d4"),
         );
 
         let (crit_capture, dmg_capture) = capture_roll_turns(&mut ap, 100_000);
@@ -320,7 +355,6 @@ mod tests {
         sweep_vector_range(&crit_capture, 0, 3);
         sweep_vector_range(&dmg_capture, 5, 18);
     }
-
 }
 
 //endregion
