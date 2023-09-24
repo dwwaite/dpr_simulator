@@ -156,16 +156,16 @@ mod tests {
             1,
             1,
             1,
-            DamageElement::create_empty(),
-            DamageElement::create_empty(),
+            DamageElement::from_notation_string(""),
+            DamageElement::from_notation_string(""),
         );
         let right = AttackProfile::new(
             1,
             1,
             1,
             1,
-            DamageElement::create_empty(),
-            DamageElement::create_empty(),
+            DamageElement::from_notation_string(""),
+            DamageElement::from_notation_string(""),
         );
 
         assert_eq!(left, right);
@@ -180,16 +180,16 @@ mod tests {
             1,
             1,
             1,
-            DamageElement::create_empty(),
-            DamageElement::create_empty(),
+            DamageElement::from_notation_string(""),
+            DamageElement::from_notation_string(""),
         );
         let right = AttackProfile::new(
             2,
             1,
             1,
             1,
-            DamageElement::create_empty(),
-            DamageElement::create_empty(),
+            DamageElement::from_notation_string(""),
+            DamageElement::from_notation_string(""),
         );
 
         assert_ne!(left, right);
@@ -204,8 +204,8 @@ mod tests {
             0,
             0,
             0,
-            DamageElement::create_empty(),
-            DamageElement::create_empty(),
+            DamageElement::from_notation_string(""),
+            DamageElement::from_notation_string(""),
         );
 
         let mut roll_capture: Vec<i32> = Vec::new();
@@ -227,8 +227,8 @@ mod tests {
             0,
             0,
             0,
-            DamageElement::create_empty(),
-            DamageElement::create_empty(),
+            DamageElement::from_notation_string(""),
+            DamageElement::from_notation_string(""),
         );
 
         let (crit_capture, hit_capture) = capture_roll_attack(&mut ap, 10_000);
@@ -252,8 +252,8 @@ mod tests {
             0,
             0,
             0,
-            DamageElement::create_empty(),
-            DamageElement::create_empty(),
+            DamageElement::from_notation_string(""),
+            DamageElement::from_notation_string(""),
         );
 
         let (crit_capture, hit_capture) = capture_roll_attack(&mut ap, 10_000);
@@ -277,7 +277,7 @@ mod tests {
             0,
             0,
             DamageElement::from_notation_string("1d6+1"),
-            DamageElement::create_empty(),
+            DamageElement::from_notation_string(""),
         );
 
         let (crit_capture, dmg_capture) = capture_roll_turns(&mut ap, 10_000);
@@ -299,7 +299,7 @@ mod tests {
             0,
             0,
             DamageElement::from_notation_string("1d6+1"),
-            DamageElement::create_empty(),
+            DamageElement::from_notation_string(""),
         );
 
         let (crit_capture, dmg_capture) = capture_roll_turns(&mut ap, 10_000);
@@ -320,7 +320,7 @@ mod tests {
             0,
             1,
             0,
-            DamageElement::create_empty(),
+            DamageElement::from_notation_string(""),
             DamageElement::from_notation_string("1d6+1"),
         );
 

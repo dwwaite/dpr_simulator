@@ -101,12 +101,6 @@ impl DamageElement {
         DamageElement::new(die_elements, static_modifier)
     }
 
-    #[allow(dead_code)]
-    pub fn create_empty() -> DamageElement {
-        let empty_die: Vec<Die> = Vec::new();
-        DamageElement::new(empty_die, 0)
-    }
-
     pub fn roll_damage(&self, roll_element: &mut ThreadRng, is_crit: bool) -> i32 {
         // Roll the damage for the DamageElement
 
@@ -226,12 +220,12 @@ mod tests {
         // Test the extraction for die notation on a fail case.
 
         let obs_result: DamageElement = DamageElement::from_notation_string("");
-        assert_eq!(DamageElement::create_empty(), obs_result);
+        assert_eq!(DamageElement::from_notation_string(""), obs_result);
     }
 
     #[test]
     fn test_create_empty() {
-        let obs_element = DamageElement::create_empty();
+        let obs_element = DamageElement::from_notation_string("");
 
         assert_eq!(obs_element.die_elements, Vec::<Die>::new());
         assert_eq!(obs_element.static_element, 0);
