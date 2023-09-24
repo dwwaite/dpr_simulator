@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 clap = { version = "4.3.10", features = ["derive"] }
-polars = { version = "0.30.0", features = ["parquet"] }
+polars = { version = "0.30.0", features = ["lazy", "parquet"] }
 rand = "0.8"
 regex = "1.9.1"
 simple-error = "0.3.0"

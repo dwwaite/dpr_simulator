@@ -1,60 +1,55 @@
+use std::process::exit;
+
 use clap::Parser;
 //use std::error::Error;
+
+mod attackprofile;
+//use attackprofile::AttackProfile;
 
 mod damageelement;
 use damageelement::DamageElement;
 
-/*
-mod attackprofile;
-use attackprofile::AttackProfile;
-
 mod turnsimulation;
 use turnsimulation::process_simulation;
-*/
 
 fn main() {
 
     // Parse and extract the user inputs
     let cli: Cli = Cli::parse();
-    eprint!("Unpacking user options...");
 
-    // Need to handle errors in this statement in the future...
-    let (_mainhand_attack, mainhand_weapon) = unpack_mh_details(&cli);
-    let (_offhand_attack, _offhand_weapon) = unpack_oh_details(&cli);
-
-    let mut x = rand::thread_rng();
-    let _ = mainhand_weapon.roll_damage(&mut x, false);
-
-    //let ac_targets: Vec<i32> = vec![12, 14, 16, 18, 20];
-}
-
-fn unpack_mh_details(cli: &Cli) -> (i32, DamageElement) {
-
-    let mainhand_attacks = &cli.mainhand_attacks;
-    let mainhand_weapon = DamageElement::from_notation_string(&cli.mainhand_weapon);
-
-    (*mainhand_attacks, mainhand_weapon)
-}
-
-fn unpack_oh_details(cli: &Cli) -> (i32, DamageElement) {
-
+    // Upack the optional off-hand options
     let offhand_attacks: i32 = match cli.offhand_attacks {
         Some(o) => o,
         None => 0
     };
-    let offhand_weapon = match &cli.offhand_weapon {
-        Some(s) => DamageElement::from_notation_string(&s),
-        None => DamageElement::create_empty(),
+    let offhand_weapon: String = match cli.offhand_weapon {
+        Some(s) => s,
+        None => "".to_string(),
     };
 
-    (offhand_attacks, offhand_weapon)
+    let _output_df = match process_simulation(
+        vec![12, 14, 16, 18, 20],
+        cli.to_hit,
+        cli.mainhand_attacks,
+        cli.mainhand_weapon,
+        offhand_attacks,
+        offhand_weapon,
+        cli.number_turns
+    ) {
+        Ok(df) => df,
+        Err(e) => {
+            println!("{}", e);
+            exit(1);
+        }
+    };
+
 }
 
 #[derive(Parser)]
 struct Cli {
 
     /// To-Hit modifier
-    #[arg(short, long, value_name = "TO HIT")]
+    #[arg(short = 't', long, value_name = "TO HIT")]
     to_hit: i32,
 
     /// Path to save results (Apache parquet format)
