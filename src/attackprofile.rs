@@ -8,7 +8,7 @@ const MAX_ROLL: i32 = 20;
 
 #[derive(Debug)]
 pub struct AttackProfile {
-    target_ac: i32,
+    pub target_ac: i32,
     number_mh_attacks: i32,
     number_oh_attacks: i32,
     hit_modifier: i32,
