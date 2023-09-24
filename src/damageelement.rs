@@ -102,6 +102,7 @@ impl DamageElement {
         DamageElement::new(die_elements, static_modifier)
     }
 
+    #[allow(dead_code)]
     pub fn create_empty() -> DamageElement {
 
         let empty_die: Vec<Die> = Vec::new();
