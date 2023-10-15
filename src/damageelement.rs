@@ -1,50 +1,18 @@
+use crate::dice::Die;
 use rand::rngs::ThreadRng;
-use rand::Rng;
 use regex::Regex;
 
 #[derive(Debug, PartialEq)]
-pub struct Die {
-    roll_number: i32,
-    roll_min: i32,
-    roll_max: i32,
-}
-
-impl Die {
-    pub fn new(roll_number: i32, roll_max: i32) -> Die {
-        Die {
-            roll_number: roll_number,
-            roll_min: 1,
-            roll_max: roll_max,
-        }
-    }
-
-    pub fn roll(&self, rng_element: &mut ThreadRng, is_crit: bool) -> i32 {
-        // Roll the outcome for the Die element.
-
-        let n_rolls = match is_crit {
-            true => self.roll_number * 2,
-            false => self.roll_number,
-        };
-
-        let mut dmg_roll: i32 = 0;
-        for _ in 0..n_rolls {
-            dmg_roll += rng_element.gen_range(0..self.roll_max);
-            dmg_roll += self.roll_min;
-        }
-
-        dmg_roll
-    }
-}
-
-#[derive(Debug, PartialEq)]
 pub struct DamageElement {
+    pub to_hit: i32,
     die_elements: Vec<Die>,
     static_element: i32,
 }
 
 impl DamageElement {
-    pub fn new(die_elements: Vec<Die>, static_element: i32) -> DamageElement {
+    pub fn new(to_hit: i32, die_elements: Vec<Die>, static_element: i32) -> DamageElement {
         DamageElement {
+            to_hit: to_hit,
             die_elements: die_elements,
             static_element: static_element,
         }
@@ -86,7 +54,7 @@ impl DamageElement {
         value_capture
     }
 
-    pub fn from_notation_string(notation: &str) -> DamageElement {
+    pub fn from_notation_string(to_hit: i32, notation: &str) -> DamageElement {
         /* Uses regex to decompose the following elements from an input string:
                 XdY
                 +N
@@ -98,19 +66,19 @@ impl DamageElement {
         let die_elements: Vec<Die> = DamageElement::parse_die_elements(notation);
         let static_modifier: i32 = DamageElement::parse_static_elements(notation);
 
-        DamageElement::new(die_elements, static_modifier)
+        DamageElement::new(to_hit, die_elements, static_modifier)
     }
 
-    pub fn roll_damage(&self, roll_element: &mut ThreadRng, is_crit: bool) -> i32 {
+    pub fn roll_damage(&self, roll_element: &mut ThreadRng) -> (i32, i32) {
         // Roll the damage for the DamageElement
 
         let mut dmg_roll: i32 = 0;
 
         for die in &self.die_elements {
-            dmg_roll += die.roll(roll_element, is_crit)
+            dmg_roll += die.roll(roll_element)
         }
 
-        dmg_roll + self.static_element
+        (dmg_roll, self.static_element)
     }
 }
 
@@ -126,50 +94,6 @@ mod tests {
 
         (obs_min, obs_max)
     }
-
-    //region Die
-
-    #[test]
-    fn test_roll_std() {
-        // Test the Die::roll() function for a standard roll.
-        //  There's an unlike-but-not-zero chance that this will fail to see the maximum value
-        //  due to bad luck.
-
-        let my_die = Die::new(1, 6);
-        let mut roll_element = rand::thread_rng();
-
-        let mut roll_results: Vec<i32> = Vec::new();
-        for _ in 0..10000 {
-            roll_results.push(my_die.roll(&mut roll_element, false));
-        }
-
-        let (obs_min, obs_max) = unpack_roll_vector(&roll_results);
-        assert_eq!(1, obs_min);
-        assert_eq!(6, obs_max);
-    }
-
-    #[test]
-    fn test_roll_crit() {
-        // Test the Die::roll() function for a critical hit.
-        //  There's an unlike-but-not-zero chance that this will fail to see the maximum value
-        //  due to bad luck.
-
-        let my_die = Die::new(1, 6);
-        let mut roll_element = rand::thread_rng();
-
-        let mut roll_results: Vec<i32> = Vec::new();
-        for _ in 0..10000 {
-            roll_results.push(my_die.roll(&mut roll_element, true));
-        }
-
-        let (obs_min, obs_max) = unpack_roll_vector(&roll_results);
-        assert_eq!(2, obs_min);
-        assert_eq!(12, obs_max);
-    }
-
-    //endregion
-
-    //region DamageElement
 
     #[test]
     fn test_parse_die_elements_single() {
@@ -209,8 +133,8 @@ mod tests {
     fn test_from_notation_string() {
         // Test the extraction for die notation
 
-        let exp_element = DamageElement::new(vec![Die::new(1, 4), Die::new(2, 6)], 5);
-        let obs_element = DamageElement::from_notation_string("1d4,2d6+5");
+        let exp_element = DamageElement::new(0, vec![Die::new(1, 4), Die::new(2, 6)], 5);
+        let obs_element = DamageElement::from_notation_string(0, "1d4,2d6+5");
 
         assert_eq!(exp_element, obs_element);
     }
@@ -219,91 +143,56 @@ mod tests {
     fn test_from_notation_string_empty() {
         // Test the extraction for die notation on a fail case.
 
-        let obs_result: DamageElement = DamageElement::from_notation_string("");
-        assert_eq!(DamageElement::from_notation_string(""), obs_result);
+        let obs_result: DamageElement = DamageElement::from_notation_string(0, "");
+        assert_eq!(DamageElement::from_notation_string(0, ""), obs_result);
     }
 
     #[test]
     fn test_create_empty() {
-        let obs_element = DamageElement::from_notation_string("");
+        let obs_element = DamageElement::from_notation_string(0, "");
 
         assert_eq!(obs_element.die_elements, Vec::<Die>::new());
         assert_eq!(obs_element.static_element, 0);
     }
 
     #[test]
-    fn test_roll_damage_single_std() {
-        // Tests the roll function over a single, standard hit.
+    fn test_roll_damage_single() {
+        // Tests the roll function over a single-die hit.
 
-        // Rolling 1d4+5 - should range between 2 and 5
-        let my_element: DamageElement = DamageElement::new(vec![Die::new(1, 4)], 1);
+        // Rolling 1d4+1 - should range between 2 and 5
+        let my_element: DamageElement = DamageElement::new(0, vec![Die::new(1, 4)], 1);
         let mut roll_element = rand::thread_rng();
 
-        let mut roll_capture: Vec<i32> = Vec::new();
+        let mut die_capture: Vec<i32> = Vec::new();
         for _ in 0..10000 {
-            roll_capture.push(my_element.roll_damage(&mut roll_element, false));
+            let (die_result, mod_result) = my_element.roll_damage(&mut roll_element);
+            die_capture.push(die_result + mod_result);
         }
 
-        let (obs_min, obs_max) = unpack_roll_vector(&roll_capture);
-        assert_eq!(2, obs_min);
-        assert_eq!(5, obs_max);
+        let (obs_min, obs_max) = unpack_roll_vector(&die_capture);
+        assert_eq!(obs_min, 2);
+        assert_eq!(obs_max, 5);
     }
 
     #[test]
-    fn test_roll_damage_single_crit() {
-        // Tests the roll function over a single, critical hit.
+    fn test_roll_damage_multi() {
+        // Tests the roll function over a multi-die hit.
 
-        // Rolling 1d4+5 - should crit between 3 and 9
-        let my_element: DamageElement = DamageElement::new(vec![Die::new(1, 4)], 1);
+        // Rolling 1d4 + 1d6 + 1, should range between 3 and 11
+        let my_element: DamageElement =
+            DamageElement::new(0, vec![Die::new(1, 4), Die::new(1, 6)], 1);
         let mut roll_element = rand::thread_rng();
 
         let mut roll_capture: Vec<i32> = Vec::new();
         for _ in 0..10000 {
-            roll_capture.push(my_element.roll_damage(&mut roll_element, true));
-        }
-
-        let (obs_min, obs_max) = unpack_roll_vector(&roll_capture);
-        assert_eq!(3, obs_min);
-        assert_eq!(9, obs_max);
-    }
-
-    #[test]
-    fn test_roll_damage_multi_std() {
-        // Tests the roll function over a multi-die, standard hit.
-
-        // Rolling 1d4+5 - should range between 3 and 11
-        let my_element: DamageElement = DamageElement::new(vec![Die::new(1, 4), Die::new(1, 6)], 1);
-        let mut roll_element = rand::thread_rng();
-
-        let mut roll_capture: Vec<i32> = Vec::new();
-        for _ in 0..10000 {
-            roll_capture.push(my_element.roll_damage(&mut roll_element, false));
+            let (die_result, mod_result) = my_element.roll_damage(&mut roll_element);
+            roll_capture.push(die_result + mod_result);
         }
 
         let (obs_min, obs_max) = unpack_roll_vector(&roll_capture);
         assert_eq!(3, obs_min);
         assert_eq!(11, obs_max);
     }
-
-    #[test]
-    fn test_roll_damage_multi_crit() {
-        // Tests the roll function over a multi-die, critical hit.
-
-        // Rolling 1d4+5 - should range between 5 and 21
-        let my_element: DamageElement = DamageElement::new(vec![Die::new(1, 4), Die::new(1, 6)], 1);
-        let mut roll_element = rand::thread_rng();
-
-        let mut roll_capture: Vec<i32> = Vec::new();
-        for _ in 0..10000 {
-            roll_capture.push(my_element.roll_damage(&mut roll_element, true));
-        }
-
-        let (obs_min, obs_max) = unpack_roll_vector(&roll_capture);
-        assert_eq!(5, obs_min);
-        assert_eq!(21, obs_max);
-    }
-
-    //endregion
 }
 
 //endregion
