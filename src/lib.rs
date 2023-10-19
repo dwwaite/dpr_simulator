@@ -7,75 +7,103 @@ mod attackprofile;
 use attackprofile::AttackProfile;
 mod damageelement;
 use damageelement::DamageElement;
+mod dice;
+
+#[derive(Debug, PartialEq)]
+pub enum HitResult {
+    Miss,
+    Hit,
+    CriticalHit,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum Ruleset {
+    DND5e,
+    PF2e,
+}
 
 //region Private functions
 
 fn bundle_inputs(
     ac_targets: Vec<i32>,
-    to_hit: i32,
-    mainhand_attacks: i32,
-    mainhand_notation: String,
-    offhand_attack: i32,
-    offhand_string: String,
+    to_hit: Vec<i32>,
+    weapon_details: Vec<String>,
+    ruleset: Ruleset,
 ) -> Vec<AttackProfile> {
     // Create a vector of AttackProfile structs corresponding to a vector of AC values.
 
     let profile_vector: Vec<AttackProfile> = ac_targets
         .into_iter()
         .map(|ac| {
-            AttackProfile::new(
-                ac,
-                mainhand_attacks,
-                offhand_attack,
-                to_hit,
-                DamageElement::from_notation_string(&mainhand_notation),
-                DamageElement::from_notation_string(&offhand_string),
-            )
+            // If struct was changed could create this once and borrow in AttackProfile
+            let damage_elements: Vec<DamageElement> = to_hit
+                .iter()
+                .zip(&weapon_details)
+                .map(|(h, d)| DamageElement::from_notation_string(*h, d))
+                .collect();
+
+            AttackProfile::new(ac, damage_elements, ruleset)
         })
         .collect();
 
     profile_vector
 }
 
-fn process_ac_iteration(
-    mut attack_profile: AttackProfile,
-    number_turns: i32,
-) -> Result<DataFrame, Box<dyn Error>> {
+fn bundle_results(
+    ac_value: i32,
+    crit_counter: Vec<i32>,
+    hit_counter: Vec<i32>,
+    damage_counter: Vec<i32>,
+) -> DataFrame {
+    // Collect the results of an attack profile simulation into a polars DataFrame
+
+    // Compute the number of iterations, and replicate the AC over the size of the input vectors
+    let max_len: i32 = (crit_counter.len() as i32) + 1;
+    let iteration_counter: Vec<i32> = (1..max_len).collect();
+    let ac_counter: Vec<i32> = vec![ac_value; crit_counter.len()];
+
+    // Create the DataFrame. THis function cannot fail ni this scope, so just unwrap and return.
+    df!(
+        "Iteration" => &iteration_counter,
+        "Target_AC" => &ac_counter,
+        "Number_hits" => &hit_counter,
+        "Number_crits" => &crit_counter,
+        "Total_damage" => &damage_counter
+    )
+    .unwrap()
+}
+
+fn evaluate_attack_profile(attack_profile: AttackProfile, number_turns: i32) -> DataFrame {
     // Simulate a specified number of attack iterations and format the results as a DataFrame.
 
-    let iteration_counter: Vec<i32> = (0..number_turns).map(|x| x + 1).collect();
-    let ac_record: Vec<i32> = vec![attack_profile.target_ac; number_turns as usize];
-
+    //roll_turn(&self, roll_element: &mut ThreadRng) -> (crit_counter, hit_counter, total_damage)
     let mut crit_counter: Vec<i32> = Vec::new();
+    let mut hit_counter: Vec<i32> = Vec::new();
     let mut damage_counter: Vec<i32> = Vec::new();
 
+    let mut roll_element = rand::thread_rng();
+
     for _ in 0..number_turns {
-        let (n_crits, damage_rolled) = attack_profile.roll_turn();
+        let (n_crits, n_hits, damage_rolled) = attack_profile.roll_turn(&mut roll_element);
         crit_counter.push(n_crits);
+        hit_counter.push(n_hits);
         damage_counter.push(damage_rolled);
     }
 
     // Bundle results into a DataFrame and return
-    let results_df = match df!(
-        "Iteration" => &iteration_counter,
-        "Target_AC" => &ac_record,
-        "Number_crits" => &crit_counter,
-        "Total_damage" => &damage_counter
-    ) {
-        Ok(df) => df,
-        _ => bail!(format!(
-            "Unable to produce results matrix for AC value '{}'!",
-            attack_profile.target_ac
-        )),
-    };
-    Ok(results_df)
+    bundle_results(
+        attack_profile.target_ac,
+        crit_counter,
+        hit_counter,
+        damage_counter,
+    )
 }
 
 fn gather_dataframes(attack_results: Vec<LazyFrame>) -> Result<DataFrame, Box<dyn Error>> {
     // Compress the results into the final DataFrame for return
 
     // Documentation on the circumstances that cause the polars concat() function is lacking.
-    // For now just return into the erorr box until I get a sighting of an error.
+    // For now just return into the error box until I get a sighting of an error.
     let concat_result = concat(attack_results, true, true)?;
 
     let final_df = match concat_result.collect() {
@@ -92,28 +120,19 @@ fn gather_dataframes(attack_results: Vec<LazyFrame>) -> Result<DataFrame, Box<dy
 
 pub fn process_simulation(
     ac_targets: Vec<i32>,
-    to_hit: i32,
-    mainhand_attacks: i32,
-    mainhand_notation: String,
-    offhand_attack: i32,
-    offhand_string: String,
+    to_hit: Vec<i32>,
+    weapon_details: Vec<String>,
+    ruleset: Ruleset,
     number_turns: i32,
 ) -> Result<DataFrame, Box<dyn Error>> {
     // Partition the inputs over the range of AC values and simulate the attack turns.
 
-    let profile_vector = bundle_inputs(
-        ac_targets,
-        to_hit,
-        mainhand_attacks,
-        mainhand_notation,
-        offhand_attack,
-        offhand_string,
-    );
+    let profile_vector = bundle_inputs(ac_targets, to_hit, weapon_details, ruleset);
 
     // Populate a vector of results - later this will dispatch to multiple threads.
     let mut attack_results: Vec<LazyFrame> = Vec::new();
     for attack_profile in profile_vector {
-        let ac_df = process_ac_iteration(attack_profile, number_turns)?;
+        let ac_df = evaluate_attack_profile(attack_profile, number_turns);
         attack_results.push(ac_df.lazy());
     }
 
@@ -155,49 +174,61 @@ mod tests {
     use std::path::Path;
 
     #[test]
-    fn test_bundle_inputs_both() {
-        // Test the turnsimulation.bundle_inputs() function with both weapons active.
+    fn test_bundle_inputs() {
+        // Test the function in a single call over a set of inputs.
 
-        let mh_string = "1d4+1".to_string();
-        let oh_string = "1d4".to_string();
-        let mh_1 = DamageElement::from_notation_string(&mh_string);
-        let mh_2 = DamageElement::from_notation_string(&mh_string);
-        let oh_1 = DamageElement::from_notation_string(&oh_string);
-        let oh_2 = DamageElement::from_notation_string(&oh_string);
+        // Set the input values
+        let input_acs = vec![1, 2];
+        let input_hits = vec![3, 4];
+        let input_details = vec!["1d4".to_string(), "1d6".to_string()];
 
-        let exp_values: Vec<AttackProfile> = vec![
-            AttackProfile::new(1, 1, 1, 1, mh_1, oh_1),
-            AttackProfile::new(2, 1, 1, 1, mh_2, oh_2),
-        ];
+        // Set the expected output vector
+        let mut exp_profiles: Vec<AttackProfile> = Vec::new();
+        exp_profiles.push(AttackProfile::new(
+            1,
+            vec![
+                DamageElement::from_notation_string(3, "1d4"),
+                DamageElement::from_notation_string(4, "1d6"),
+            ],
+            Ruleset::DND5e,
+        ));
+        exp_profiles.push(AttackProfile::new(
+            2,
+            vec![
+                DamageElement::from_notation_string(3, "1d4"),
+                DamageElement::from_notation_string(4, "1d6"),
+            ],
+            Ruleset::DND5e,
+        ));
 
-        let obs_values = bundle_inputs(vec![1, 2], 1, 1, mh_string, 1, oh_string);
-        assert_eq!(exp_values, obs_values);
+        let obs_profiles = bundle_inputs(input_acs, input_hits, input_details, Ruleset::DND5e);
+        assert_eq!(exp_profiles, obs_profiles);
     }
 
     #[test]
-    fn test_process_ac_iteration() {
-        // Test the turnsimulation.process_ac_iteration() function for a success case.
+    fn test_bundle_results() {
+        // Test the behaviour of the bundle_results() function, assuming no errors.
 
-        let mh_element = DamageElement::from_notation_string("1d4+1");
-        let oh_element = DamageElement::from_notation_string("");
-        let attack_profile = AttackProfile::new(1, 1, 0, 1, mh_element, oh_element);
-        let number_turns = 5;
+        let input_ac = 5;
+        let input_crits = vec![0, 1, 2, 3, 4];
+        let input_hits = vec![2, 4, 6, 8, 10];
+        let input_damage = vec![10, 12, 14, 16, 18];
 
-        let obs_result = process_ac_iteration(attack_profile, number_turns);
-        assert!(obs_result.is_ok());
+        let exp_iteration = Series::new("Iteration", &vec![1, 2, 3, 4, 5]);
+        let exp_ac = Series::new("Target_AC", &vec![5; 5]);
+        let exp_crits = Series::new("Number_crits", &input_crits);
+        let exp_hits = Series::new("Number_hits", &input_hits);
+        let exp_damage = Series::new("Total_damage", &input_damage);
 
-        // Test over the two predictable columns.
-        // Ignore for crit and damage counters, as these just capture the output of functions tested in attackprofile.rs
-        let obs_output = obs_result.unwrap();
-        assert_eq!((5, 4), obs_output.shape());
-        assert_eq!(
-            &Series::new("Iteration", &[1, 2, 3, 4, 5]),
-            obs_output.column("Iteration").unwrap()
-        );
-        assert_eq!(
-            &Series::new("Target_AC", &[1, 1, 1, 1, 1]),
-            obs_output.column("Target_AC").unwrap()
-        );
+        let obs_df = bundle_results(input_ac, input_crits, input_hits, input_damage);
+
+        // Check the shape and contents
+        assert_eq!((5, 5), obs_df.shape());
+        assert_eq!(&exp_iteration, obs_df.column("Iteration").unwrap());
+        assert_eq!(&exp_ac, obs_df.column("Target_AC").unwrap());
+        assert_eq!(&exp_crits, obs_df.column("Number_crits").unwrap());
+        assert_eq!(&exp_hits, obs_df.column("Number_hits").unwrap());
+        assert_eq!(&exp_damage, obs_df.column("Total_damage").unwrap());
     }
 
     #[test]
@@ -262,15 +293,20 @@ mod tests {
            Only testing over the success case, as internal errors are tested in each subordinate function, and
             this just propagates those errors.
         */
-        let mh_notation = "1d4+1".to_string();
-        let oh_notation = "".to_string();
 
-        let obs_result = process_simulation(vec![1, 2, 3], 10, 1, mh_notation, 0, oh_notation, 2);
-        assert!(obs_result.is_ok());
+        let obs_result = process_simulation(
+            vec![1, 2, 3],
+            vec![10],
+            vec!["1d4+1".to_string()],
+            Ruleset::DND5e,
+            2,
+        );
 
         // Test the predictable output columns - expecting 3 (AC) repeats of 2 turns.
+        assert!(obs_result.is_ok());
         let obs_output = obs_result.unwrap();
-        assert_eq!((6, 4), obs_output.shape());
+
+        assert_eq!((6, 5), obs_output.shape());
         assert_eq!(
             &Series::new("Iteration", &[1, 2, 1, 2, 1, 2]),
             obs_output.column("Iteration").unwrap()

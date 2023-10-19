@@ -97,7 +97,7 @@ impl AttackProfile {
 
         match (state, ruleset) {
             (&HitResult::CriticalHit, &Ruleset::PF2e) => 2 * (dmg_roll + dmg_mod),
-            (&HitResult::CriticalHit, &Ruleset::DND53) => (2 * dmg_roll) + dmg_mod,
+            (&HitResult::CriticalHit, &Ruleset::DND5e) => (2 * dmg_roll) + dmg_mod,
             (&HitResult::Hit, _) => dmg_roll + dmg_mod,
             _ => 0,
         }
@@ -118,7 +118,7 @@ impl AttackProfile {
         for damage_element in &self.damage_elements {
             // Perform the roll
             let attack_result = match self.ruleset {
-                Ruleset::DND53 => AttackProfile::roll_5e_attack(
+                Ruleset::DND5e => AttackProfile::roll_5e_attack(
                     &d20,
                     damage_element.to_hit,
                     self.target_ac,
@@ -309,7 +309,7 @@ mod tests {
         // Test how the damage results are computed using D&D 5e critical hit rules.
 
         let obs_dmg =
-            AttackProfile::determine_damage(&HitResult::CriticalHit, &Ruleset::DND53, 1, 1);
+            AttackProfile::determine_damage(&HitResult::CriticalHit, &Ruleset::DND5e, 1, 1);
         assert_eq!(obs_dmg, 3);
     }
 
@@ -326,7 +326,7 @@ mod tests {
     fn test_determine_damage_hit() {
         // Test how the damage results are computed using a regular hit for both rulsets.
 
-        let obs_dmg_dnd = AttackProfile::determine_damage(&HitResult::Hit, &Ruleset::DND53, 1, 1);
+        let obs_dmg_dnd = AttackProfile::determine_damage(&HitResult::Hit, &Ruleset::DND5e, 1, 1);
         assert_eq!(obs_dmg_dnd, 2);
 
         let obs_dmg_pf = AttackProfile::determine_damage(&HitResult::Hit, &Ruleset::PF2e, 1, 1);
@@ -337,7 +337,7 @@ mod tests {
     fn test_determine_damage_miss() {
         // Test how the damage results are computed on a miss for both rulsets.
 
-        let obs_dmg_dnd = AttackProfile::determine_damage(&HitResult::Miss, &Ruleset::DND53, 1, 1);
+        let obs_dmg_dnd = AttackProfile::determine_damage(&HitResult::Miss, &Ruleset::DND5e, 1, 1);
         assert_eq!(obs_dmg_dnd, 0);
 
         let obs_dmg_pf = AttackProfile::determine_damage(&HitResult::Miss, &Ruleset::PF2e, 1, 1);
@@ -351,7 +351,7 @@ mod tests {
         // It's hard to determine exact outputs, but with this set up the function is guaranteed to hit, so hit
         // and damage counter will be >0.
         let de = DamageElement::new(10, vec![Die::new(1, 6)], 1);
-        let ap = AttackProfile::new(10, vec![de], Ruleset::DND53);
+        let ap = AttackProfile::new(10, vec![de], Ruleset::DND5e);
         let mut roll_element = rand::thread_rng();
 
         let (_, obs_hit, obs_dmg) = ap.roll_turn(&mut roll_element);
