@@ -7,6 +7,7 @@ Messing around in `rust` to make a damage calculator for D&D 5e or Pathfinder 2e
 1. [Background](#background)
 1. [Detailed description of commands](#detailed-description-of-commands)
 1. [What to do with the output](#what-to-do-with-the-output)
+1. [To do list](#to-do-list)
 
 ---
 
@@ -162,5 +163,17 @@ df.groupby("Target_AC").agg({"Total_damage": ['min', 'median', 'max']})
 |20.0|0.0|7.0|40.0|
 
 >The minimum and maximum are not necessarily useful - the minimum will almost certainly reflect a round of all misses, and the maximum will most like be a round of critical hits rolling max damage on each die (very rare, but over a million rounds it'll happen sooner or later).
+
+---
+
+## To do list
+
+Things to add in the future
+
+- [ ] Add bonus damage rules (e.g smites)
+- [ ] Add selective bonus damage rules (e.g. brutual critical, smites on criticals)
+- [ ] Add advantage and disadvantage mechanics
+   - [ ] Either flat advantage, or potential for triple advantage ([Elven Accuracy](http://dnd5e.wikidot.com/feat:elven-accuracy))
+   - [ ] Consider adding the Pathfinder hero point system as well?
 
 ---
