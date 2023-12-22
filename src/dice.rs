@@ -1,10 +1,8 @@
-use std::cmp::{max, min};
 use rand::rngs::ThreadRng;
 use rand::Rng;
+use std::cmp::{max, min};
 
 use crate::Reroll;
-
-const MIN_ROLL: i32 = 1;
 
 #[derive(Debug, PartialEq)]
 pub struct Die {
@@ -14,9 +12,9 @@ pub struct Die {
 }
 
 impl Die {
-    pub fn new(roll_max: i32, roll_modifier: Reroll) -> Die {
+    pub fn new(roll_min: i32, roll_max: i32, roll_modifier: Reroll) -> Die {
         Die {
-            roll_min: MIN_ROLL,
+            roll_min: roll_min,
             roll_max: roll_max,
             roll_modifier: roll_modifier,
         }
@@ -27,28 +25,22 @@ impl Die {
 
         match self.roll_modifier {
             Reroll::Standard => roll_element.gen_range(self.roll_min..self.roll_max + 1),
-            Reroll::Advantage => {
-                max(
-                    roll_element.gen_range(self.roll_min..self.roll_max + 1),
-                    roll_element.gen_range(self.roll_min..self.roll_max + 1)
-                )
-            },
-            Reroll::DoubleAdvantage => {
-                *vec![
-                    roll_element.gen_range(self.roll_min..self.roll_max + 1),
-                    roll_element.gen_range(self.roll_min..self.roll_max + 1),
-                    roll_element.gen_range(self.roll_min..self.roll_max + 1)
-                ]
-                .iter()
-                .max()
-                .unwrap()
-            },
-            Reroll::Disadvantage => {
-                min(
-                    roll_element.gen_range(self.roll_min..self.roll_max + 1),
-                    roll_element.gen_range(self.roll_min..self.roll_max + 1)
-                )
-            },
+            Reroll::Advantage => max(
+                roll_element.gen_range(self.roll_min..self.roll_max + 1),
+                roll_element.gen_range(self.roll_min..self.roll_max + 1),
+            ),
+            Reroll::DoubleAdvantage => *vec![
+                roll_element.gen_range(self.roll_min..self.roll_max + 1),
+                roll_element.gen_range(self.roll_min..self.roll_max + 1),
+                roll_element.gen_range(self.roll_min..self.roll_max + 1),
+            ]
+            .iter()
+            .max()
+            .unwrap(),
+            Reroll::Disadvantage => min(
+                roll_element.gen_range(self.roll_min..self.roll_max + 1),
+                roll_element.gen_range(self.roll_min..self.roll_max + 1),
+            ),
         }
     }
 }
@@ -69,7 +61,7 @@ mod tests {
     #[test]
     fn test_roll_standard() {
         let mut roll_element = rand::thread_rng();
-        let my_die = Die::new(10, Reroll::Standard);
+        let my_die = Die::new(1, 10, Reroll::Standard);
 
         let mut roll_results: Vec<i32> = Vec::new();
         for _ in 0..10000 {
@@ -83,8 +75,8 @@ mod tests {
     #[test]
     fn test_roll_advantage() {
         let mut roll_element = rand::thread_rng();
-        let std_die = Die::new(10, Reroll::Standard);
-        let adv_die = Die::new(10, Reroll::Advantage);
+        let std_die = Die::new(1, 10, Reroll::Standard);
+        let adv_die = Die::new(1, 10, Reroll::Advantage);
 
         let mut std_results: Vec<i32> = Vec::new();
         let mut adv_results: Vec<i32> = Vec::new();
@@ -103,8 +95,8 @@ mod tests {
     #[test]
     fn test_roll_disadvantage() {
         let mut roll_element = rand::thread_rng();
-        let std_single = Die::new(10, Reroll::Standard);
-        let adv_die = Die::new(10, Reroll::Disadvantage);
+        let std_single = Die::new(1, 10, Reroll::Standard);
+        let adv_die = Die::new(1, 10, Reroll::Disadvantage);
 
         let mut std_results: Vec<i32> = Vec::new();
         let mut adv_results: Vec<i32> = Vec::new();
@@ -123,8 +115,8 @@ mod tests {
     #[test]
     fn test_roll_doubleadvantage() {
         let mut roll_element = rand::thread_rng();
-        let adv_die = Die::new(10, Reroll::Advantage);
-        let double_die = Die::new(10, Reroll::DoubleAdvantage);
+        let adv_die = Die::new(1, 10, Reroll::Advantage);
+        let double_die = Die::new(1, 10, Reroll::DoubleAdvantage);
 
         let mut adv_results: Vec<i32> = Vec::new();
         let mut double_results: Vec<i32> = Vec::new();

@@ -1,4 +1,4 @@
-use crate::{dice::Die, HitResult, Ruleset, dicecontext::DiceContext};
+use crate::{dice::Die, dicecontext::DiceContext, HitResult, Ruleset};
 use rand::rngs::ThreadRng;
 
 #[derive(Debug, PartialEq)]
@@ -50,7 +50,7 @@ impl AttackProfile {
         // Determine whether or not the attack is a miss, hit, or critical hit.
 
         let d20_roll = hit_die.roll(roll_element);
-        let d20_total = d20_roll - hit_die.static_modifier;
+        let d20_total = d20_roll + hit_die.static_modifier;
 
         // Set a sucess counter, to allow for the nat1/nat20 adjustments.
         // Values are 0 = miss, 1 = hit, 2 = critical.
@@ -91,14 +91,23 @@ impl AttackProfile {
         }
     }
 
-    fn determine_damage(damage_dice: &DiceContext, roll_element: &mut ThreadRng, state: &HitResult, ruleset: &Ruleset) -> i32 {
+    fn determine_damage(
+        damage_dice: &DiceContext,
+        roll_element: &mut ThreadRng,
+        state: &HitResult,
+        ruleset: &Ruleset,
+    ) -> i32 {
         // Calculate the damage to be added to the running total.
 
         let dmg_roll = damage_dice.roll(roll_element);
 
         match (state, ruleset) {
-            (&HitResult::CriticalHit, &Ruleset::PF2e) => 2 * (dmg_roll + damage_dice.static_modifier),
-            (&HitResult::CriticalHit, &Ruleset::DND5e) => (2 * dmg_roll) + damage_dice.static_modifier,
+            (&HitResult::CriticalHit, &Ruleset::PF2e) => {
+                2 * (dmg_roll + damage_dice.static_modifier)
+            }
+            (&HitResult::CriticalHit, &Ruleset::DND5e) => {
+                (2 * dmg_roll) + damage_dice.static_modifier
+            }
             (&HitResult::Hit, _) => dmg_roll + damage_dice.static_modifier,
             _ => 0,
         }
@@ -113,27 +122,25 @@ impl AttackProfile {
         let mut total_damage = 0;
 
         // For each hit/damage in the sequence, compute results
-        for (hit_dice, damage_dice) in self.hit_dice
-            .iter()
-            .zip(self.damage_dice.iter()) {
-
+        for (hit_dice, damage_dice) in self.hit_dice.iter().zip(self.damage_dice.iter()) {
             // Perform the attack roll
             let attack_result = match self.ruleset {
-                Ruleset::DND5e => AttackProfile::roll_5e_attack(
-                    self.target_ac,
-                    &hit_dice,
-                    roll_element,
-                ),
-                Ruleset::PF2e => AttackProfile::roll_2e_attack(
-                    self.target_ac,
-                    &hit_dice,
-                    roll_element,
-                )
+                Ruleset::DND5e => {
+                    AttackProfile::roll_5e_attack(self.target_ac, &hit_dice, roll_element)
+                }
+                Ruleset::PF2e => {
+                    AttackProfile::roll_2e_attack(self.target_ac, &hit_dice, roll_element)
+                }
             };
 
             // Track the result then assign damage
             AttackProfile::track_hits(&attack_result, &mut crit_counter, &mut hit_counter);
-            total_damage += AttackProfile::determine_damage(&damage_dice, roll_element, &attack_result, &self.ruleset);
+            total_damage += AttackProfile::determine_damage(
+                &damage_dice,
+                roll_element,
+                &attack_result,
+                &self.ruleset,
+            );
         }
 
         (crit_counter, hit_counter, total_damage)
@@ -144,6 +151,8 @@ impl AttackProfile {
 
 #[cfg(test)]
 mod tests {
+    use crate::Reroll;
+
     use super::*;
 
     //region Attack rolls
@@ -156,7 +165,7 @@ mod tests {
         let obs_result = AttackProfile::roll_5e_attack(
             10,
             &DiceContext::parse_dice_string("1d2"),
-            &mut roll_element
+            &mut roll_element,
         );
 
         assert_eq!(HitResult::Miss, obs_result);
@@ -170,7 +179,7 @@ mod tests {
         let obs_result = AttackProfile::roll_5e_attack(
             0,
             &DiceContext::parse_dice_string("1d2"),
-            &mut roll_element
+            &mut roll_element,
         );
 
         assert_eq!(HitResult::Hit, obs_result);
@@ -180,32 +189,40 @@ mod tests {
     fn test_roll_attack_dnd5e_critical() {
         // Test the result when the attack critically hits under D&D 5e mode.
 
-        let dice_context = DiceContext::parse_dice_string("1d20");
         let mut roll_element = rand::thread_rng();
 
-        let mut result_vector: Vec<HitResult> = Vec::new();
-        for _ in 0..10000 {
-            result_vector.push(
-                AttackProfile::roll_5e_attack(
-                    0,
-                    &dice_context,
-                    &mut roll_element
-                )
-            );
-        }
+        let obs_result = AttackProfile::roll_5e_attack(
+            0,
+            &DiceContext::new(vec![Die::new(20, 20, Reroll::Standard)], 0),
+            &mut roll_element,
+        );
 
-        assert!(result_vector.contains(&HitResult::CriticalHit));
+        assert_eq!(HitResult::CriticalHit, obs_result);
     }
 
     #[test]
-    fn test_roll_attack_pf2e_miss() {
+    fn test_roll_attack_pf2e_miss_under() {
         // Test the result when the attack misses under Pathfinder 2e mode.
 
         let mut roll_element = rand::thread_rng();
         let obs_result = AttackProfile::roll_2e_attack(
-            30,
-            &DiceContext::parse_dice_string("1d10"),
-            &mut roll_element
+            5,
+            &DiceContext::parse_dice_string("1d2"),
+            &mut roll_element,
+        );
+        assert_eq!(HitResult::Miss, obs_result);
+    }
+
+    #[test]
+    fn test_roll_attack_pf2e_miss_nat1() {
+        // Test the result when the attack misses under Pathfinder 2e mode.
+
+        let mut roll_element = rand::thread_rng();
+
+        let obs_result = AttackProfile::roll_2e_attack(
+            0,
+            &DiceContext::new(vec![Die::new(1, 1, Reroll::Standard)], 1),
+            &mut roll_element,
         );
         assert_eq!(HitResult::Miss, obs_result);
     }
@@ -215,40 +232,46 @@ mod tests {
         // Test the result when the attack hits under Pathfinder 2e mode.
 
         let mut roll_element = rand::thread_rng();
-        let mut result_vector: Vec<HitResult> = Vec::new();
 
-        for _ in 0..100 {
-            result_vector.push(
-                AttackProfile::roll_5e_attack(
-                    1,
-                    &DiceContext::parse_dice_string("1d10"),
-                    &mut roll_element
-                )
-            );
-        }
+        let obs_result = AttackProfile::roll_2e_attack(
+            0,
+            &DiceContext::new(vec![Die::new(2, 2, Reroll::Standard)], 1),
+            &mut roll_element,
+        );
 
-        assert!(result_vector.contains(&HitResult::Hit));
+        assert_eq!(HitResult::Hit, obs_result);
     }
 
     #[test]
-    fn test_roll_attack_pf2e_critical() {
+    fn test_roll_attack_pf2e_critical_over() {
         // Test the result when the attack critically hits under Pathfinder 2e mode
         //  due to the +10 rule
 
         let mut roll_element = rand::thread_rng();
-        let mut result_vector: Vec<HitResult> = Vec::new();
 
-        for _ in 0..100 {
-            result_vector.push(
-                AttackProfile::roll_5e_attack(
-                    1,
-                    &DiceContext::parse_dice_string("1d20+10"),
-                    &mut roll_element
-                )
-            );
-        }
+        let obs_result = AttackProfile::roll_2e_attack(
+            1,
+            &DiceContext::new(vec![Die::new(2, 2, Reroll::Standard)], 10),
+            &mut roll_element,
+        );
 
-        assert!(result_vector.contains(&HitResult::CriticalHit));
+        assert_eq!(HitResult::CriticalHit, obs_result);
+    }
+
+    #[test]
+    fn test_roll_attack_pf2e_critical_nat20() {
+        // Test the result when the attack critically hits under Pathfinder 2e mode
+        //  due to the +10 rule
+
+        let mut roll_element = rand::thread_rng();
+
+        let obs_result = AttackProfile::roll_2e_attack(
+            19,
+            &DiceContext::new(vec![Die::new(20, 20, Reroll::Standard)], 0),
+            &mut roll_element,
+        );
+
+        assert_eq!(HitResult::CriticalHit, obs_result);
     }
 
     //endregion
@@ -305,7 +328,7 @@ mod tests {
             &DiceContext::parse_dice_string("1d1+1"),
             &mut roll_element,
             &HitResult::CriticalHit,
-            &Ruleset::DND5e
+            &Ruleset::DND5e,
         );
         assert_eq!(obs_dmg, 3);
     }
@@ -320,7 +343,7 @@ mod tests {
             &DiceContext::parse_dice_string("1d1+1"),
             &mut roll_element,
             &HitResult::CriticalHit,
-            &Ruleset::PF2e
+            &Ruleset::PF2e,
         );
         assert_eq!(obs_dmg, 4);
     }
@@ -335,7 +358,7 @@ mod tests {
             &DiceContext::parse_dice_string("1d1+1"),
             &mut roll_element,
             &HitResult::Hit,
-            &Ruleset::DND5e
+            &Ruleset::DND5e,
         );
         assert_eq!(obs_dmg_dnd, 2);
 
@@ -343,7 +366,7 @@ mod tests {
             &DiceContext::parse_dice_string("1d1+1"),
             &mut roll_element,
             &HitResult::Hit,
-            &Ruleset::PF2e
+            &Ruleset::PF2e,
         );
         assert_eq!(obs_dmg_pf, 2);
     }
@@ -358,7 +381,7 @@ mod tests {
             &DiceContext::parse_dice_string("1d1+1"),
             &mut roll_element,
             &HitResult::Miss,
-            &Ruleset::DND5e
+            &Ruleset::DND5e,
         );
         assert_eq!(obs_dmg_dnd, 0);
 
@@ -366,7 +389,7 @@ mod tests {
             &DiceContext::parse_dice_string("1d1+1"),
             &mut roll_element,
             &HitResult::Miss,
-            &Ruleset::PF2e
+            &Ruleset::PF2e,
         );
         assert_eq!(obs_dmg_pf, 0);
     }
@@ -387,7 +410,7 @@ mod tests {
             1,
             vec![DiceContext::parse_dice_string("1d20")],
             vec![DiceContext::parse_dice_string("1d6")],
-            Ruleset::DND5e
+            Ruleset::DND5e,
         );
 
         let (_, obs_hit, obs_dmg) = ap.roll_turn(&mut roll_element);
@@ -395,7 +418,6 @@ mod tests {
         assert!(obs_hit > 0);
         assert!(obs_dmg > 0);
     }
-
 }
 
 //endregion

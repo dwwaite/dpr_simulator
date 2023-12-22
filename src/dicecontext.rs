@@ -3,6 +3,8 @@ use regex::Regex;
 
 use crate::{dice::Die, Reroll};
 
+const ROLL_MIN: i32 = 1;
+
 #[derive(Debug, PartialEq)]
 pub struct DiceContext {
     dice: Vec<Die>,
@@ -24,18 +26,16 @@ impl DiceContext {
         // The regex can only fail to compile on a system error, so safe to unwrap.
         let regex_die = Regex::new(r"\d+d\d+").unwrap();
 
-        let die_elements: (i32, i32) = match regex_die
-            .find(notation) {
-                Some(ref x) => {
+        let die_elements: (i32, i32) = match regex_die.find(notation) {
+            Some(ref x) => {
+                let tokens: Vec<&str> = x.as_str().split("d").collect();
+                let n_die = tokens[0].parse().unwrap();
+                let s_die = tokens[1].parse().unwrap();
 
-                    let tokens: Vec<&str> = x.as_str().split("d").collect();
-                    let n_die = tokens[0].parse().unwrap();
-                    let s_die = tokens[1].parse().unwrap();
-
-                    (n_die, s_die)
-                },
-                None => (0, 0)
-            };
+                (n_die, s_die)
+            }
+            None => (0, 0),
+        };
 
         die_elements
     }
@@ -46,17 +46,16 @@ impl DiceContext {
 
         // The regex can only fail to compile on a system error, so safe to unwrap.
         let regex_reroll = Regex::new(r"AA|A|D").unwrap();
-        let value_capture: &str = match regex_reroll
-            .find(notation) {
-                Some(x) => x.as_str(),
-                None => ""
-            };
+        let value_capture: &str = match regex_reroll.find(notation) {
+            Some(x) => x.as_str(),
+            None => "",
+        };
 
         match value_capture {
             "AA" => Reroll::DoubleAdvantage,
             "A" => Reroll::Advantage,
             "D" => Reroll::Disadvantage,
-            _ => Reroll::Standard
+            _ => Reroll::Standard,
         }
     }
 
@@ -86,14 +85,15 @@ impl DiceContext {
         let die_vector: Vec<Die> = notation
             .split(",")
             .map(|n| {
-
                 let (n_die, die_size) = DiceContext::parse_die_elements(n);
 
                 let mut die_vector: Vec<Die> = Vec::new();
                 for _ in 0..n_die {
                     die_vector.push(Die::new(
+                        ROLL_MIN,
                         die_size,
-                        DiceContext::parse_reroll_elements(n)));
+                        DiceContext::parse_reroll_elements(n),
+                    ));
                 }
                 die_vector
             })
@@ -206,8 +206,12 @@ mod tests {
     #[test]
     fn test_parse_dice_string() {
         let exp_context = DiceContext::new(
-            vec![Die::new(4, Reroll::Standard), Die::new(6, Reroll::Disadvantage), Die::new(6, Reroll::Disadvantage)],
-            7
+            vec![
+                Die::new(1, 4, Reroll::Standard),
+                Die::new(1, 6, Reroll::Disadvantage),
+                Die::new(1, 6, Reroll::Disadvantage),
+            ],
+            7,
         );
 
         let obs_context: DiceContext = DiceContext::parse_dice_string("1d4,D2d6+7");
@@ -218,8 +222,11 @@ mod tests {
     fn test_roll() {
         let mut roll_element = rand::thread_rng();
         let context = DiceContext::new(
-            vec![Die::new(4, Reroll::Standard), Die::new(4, Reroll::Standard)],
-            20
+            vec![
+                Die::new(1, 4, Reroll::Standard),
+                Die::new(1, 4, Reroll::Standard),
+            ],
+            20,
         );
 
         // Total of the roll must be at least 1 + 1 but less than the static modifier
