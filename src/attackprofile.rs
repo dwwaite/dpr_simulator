@@ -1,4 +1,4 @@
-use crate::{dice::Die, dicecontext::DiceContext, HitResult, Ruleset};
+use crate::{dicecontext::DiceContext, HitResult, Ruleset};
 use rand::rngs::ThreadRng;
 
 #[derive(Debug, PartialEq)]
@@ -151,7 +151,7 @@ impl AttackProfile {
 
 #[cfg(test)]
 mod tests {
-    use crate::Reroll;
+    use crate::{dice::Die, Reroll};
 
     use super::*;
 
