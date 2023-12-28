@@ -53,19 +53,32 @@ The simplest solution which covers both of these rule sets, and all their edge c
 
 ```bash
 # D&D 5e, making a standard weapon attack
-dpr_simulation --to-hit 8 ...
+dpr_simulation --to-hit "1d20+8" ...
 
 # D&D 5e, GWM on the second hit, not on the first
-dpr_simulation --to-hit 8 3 ...
+dpr_simulation --to-hit "1d20+8 1d20+3" ...
 
 # Pathfinder 2e, three attacks applying the standard MAP progression
-dpr_simulation --to-hit 8 3 -2 ...
+dpr_simulation --to-hit "1d20+8 1d20+3 1d20-2" ...
 
 # Pathfinder 2e, three attacks applying MAP with an Agile weapon
-dpr_simulation --to-hit 8 4 0 ...
+dpr_simulation --to-hit "1d20+8 1d20+4 1d20" ...
 
 # Pathfinder 2e, three attacks applying MAP progression for a Ranger (Flurry) with an Agile weapon
-dpr_simulation --to-hit 8 5 2 ...
+dpr_simulation --to-hit "1d20+8 1d20+5 1d20+2" ...
+```
+
+Rolls can also be rolled with 5E Advantage, 5E Disadvantage, or "*double advantage*". This last effect is rolling three die and taking the highest - the only example of this in the game that I am aware of is [Elven Accuracy](http://dnd5e.wikidot.com/feat:elven-accuracy) but this is pretty common in optimisation contexts.
+
+```bash
+# D&D 5e, making a standard weapon attack with Advantage...
+dpr_simulation --to-hit "1d20A+8" ...
+
+# ...Disadvantage...
+dpr_simulation --to-hit "1d20D+8" ...
+
+# ...Double Advantage...
+dpr_simulation --to-hit "1d20AA+8" ...
 ```
 
 **AC targets**
@@ -102,7 +115,7 @@ Mixed die notations are also allowed, to account for situations where a weapon o
 dpr_simulation --weapon-details "1d8,1d6+3" ...
 ```
 
->**Note:** In the future the to-hit and weapon details will resize themselves to account for differences in the length between the two.
+>As with the `--to-hit` parameter, rolls can also be rolled with Advantage or other modifiers.
 
 **Output**
 
@@ -129,7 +142,7 @@ In practice this *mostly* just means that it is easier to score critical hits ag
 After running a quick simulation, the results can be viewed using a library like `pandas` or `polars`. For example, running a quick simulation for a level 5 Fighter (+3 proficiency, +4 STR) using a one-handed longsword.
 
 ```bash
-dpr_simulator -t 7 7 -w "1d8+4 1d8+4" -o output.parquet
+dpr_simulator -t "1d20+7 1d20+7" -w "1d8+4 1d8+4" -o output.parquet
 ```
 
 ```python
@@ -170,10 +183,8 @@ df.groupby("Target_AC").agg({"Total_damage": ['min', 'median', 'max']})
 
 Things to add in the future
 
+- [ ] Resize the hit and weapon damage vectors, in case uneven inputs are provided.
 - [ ] Add bonus damage rules (e.g smites)
 - [ ] Add selective bonus damage rules (e.g. brutual critical, smites on criticals)
-- [ ] Add advantage and disadvantage mechanics
-   - [ ] Either flat advantage, or potential for triple advantage ([Elven Accuracy](http://dnd5e.wikidot.com/feat:elven-accuracy))
-   - [ ] Consider adding the Pathfinder hero point system as well?
 
 ---
