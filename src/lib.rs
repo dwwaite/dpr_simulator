@@ -32,6 +32,13 @@ pub enum Ruleset {
 
 //region Private functions
 
+fn resize_vector(base_vector: &mut Vec<String>, new_value: String, iterations: usize) {
+    // Extend the length of the input by appending the specified value a given number of times.
+
+    let new_vector = vec![new_value; iterations];
+    base_vector.extend(new_vector);
+}
+
 fn produce_attackprofile(
     target_ac: i32,
     hit_details: &Vec<String>,
@@ -122,6 +129,26 @@ fn evaluate_attack_profile(attack_profile: AttackProfile, number_turns: i32) -> 
 
 //region Public functions
 
+pub fn equalise_input_vectors(first_vector: &mut Vec<String>, second_vector: &mut Vec<String>) {
+    // Compare the lengths of two input vectors and replicate the last value of the shorter so that
+    //  the lengths are equal.
+
+    if first_vector.len() == second_vector.len() {
+        // No-op if lengths are equal
+        ()
+    } else if first_vector.len() > second_vector.len() {
+        // Case if the first vector is longer than the second
+        let length_diff = first_vector.len() - second_vector.len();
+        let last_value = second_vector.last().unwrap().to_string();
+        resize_vector(second_vector, last_value, length_diff);
+    } else if first_vector.len() < second_vector.len() {
+        // Case if the second vector is longer than the first
+        let length_diff = second_vector.len() - first_vector.len();
+        let last_value = first_vector.last().unwrap().to_string();
+        resize_vector(first_vector, last_value, length_diff);
+    }
+}
+
 pub fn process_simulation(
     ac_targets: Vec<i32>,
     hit_details: Vec<String>,
@@ -202,6 +229,11 @@ mod tests {
     use std::fs;
     use std::path::Path;
 
+    fn create_string_vector(input_values: Vec<&str>) -> Vec<String> {
+        // Convert a Vec<&str> to a Vec<String>
+        input_values.iter().map(|x| x.to_string()).collect()
+    }
+
     fn dataframes_are_equal(left_df: DataFrame, right_df: DataFrame) -> () {
         // Check the shape and column sequence
         assert_eq!(left_df.shape(), right_df.shape());
@@ -215,6 +247,28 @@ mod tests {
                 right_df.column(column_name).unwrap()
             );
         }
+    }
+
+    #[test]
+    fn test_resize_vector() {
+        // Test the function when a resize occurs.
+
+        let exp_vector = create_string_vector(vec!["a", "b", "c", "d", "d"]);
+        let mut input_vector = create_string_vector(vec!["a", "b", "c"]);
+
+        resize_vector(&mut input_vector, "d".to_string(), 2);
+        assert_eq!(exp_vector, input_vector);
+    }
+
+    #[test]
+    fn test_resize_vector_no_change() {
+        // Test the function when no resize is required.
+
+        let exp_vector = create_string_vector(vec!["a", "b", "c"]);
+        let mut input_vector = create_string_vector(vec!["a", "b", "c"]);
+
+        resize_vector(&mut input_vector, "d".to_string(), 0);
+        assert_eq!(exp_vector, input_vector);
     }
 
     #[test]
@@ -340,6 +394,54 @@ mod tests {
 
         let obs_df = evaluate_attack_profile(attackprofile, 5);
         dataframes_are_equal(exp_df, obs_df);
+    }
+
+    #[test]
+    fn test_equalise_input_vectors_increase_first() {
+        // Test the function when a the first vector needs to be resized.
+
+        let mut first_vector = create_string_vector(vec!["a", "b"]);
+        let mut second_vector = create_string_vector(vec!["A", "B", "C"]);
+
+        // Test that the first vector is resized, and the second vector is unchanged.
+        let exp_first = create_string_vector(vec!["a", "b", "b"]);
+        let exp_second = create_string_vector(vec!["A", "B", "C"]);
+
+        equalise_input_vectors(&mut first_vector, &mut second_vector);
+        assert_eq!(exp_first, first_vector);
+        assert_eq!(exp_second, second_vector);
+    }
+
+    #[test]
+    fn test_equalise_input_vectors_increase_second() {
+        // Test the function when a the first vector needs to be resized.
+
+        let mut first_vector = create_string_vector(vec!["a", "b", "c", "d", "e"]);
+        let mut second_vector = create_string_vector(vec!["A", "B", "C"]);
+
+        // Test that the second vector is resized, and the first vector is unchanged.
+        let exp_first = create_string_vector(vec!["a", "b", "c", "d", "e"]);
+        let exp_second = create_string_vector(vec!["A", "B", "C", "C", "C"]);
+
+        equalise_input_vectors(&mut first_vector, &mut second_vector);
+        assert_eq!(exp_first, first_vector);
+        assert_eq!(exp_second, second_vector);
+    }
+
+    #[test]
+    fn test_equalise_input_vectors_unchanged() {
+        // Test the function when no resize if required.
+
+        let mut first_vector = create_string_vector(vec!["a", "b", "c"]);
+        let mut second_vector = create_string_vector(vec!["A", "B", "C"]);
+
+        // Test that the neither vector is resized.
+        let exp_first = create_string_vector(vec!["a", "b", "c"]);
+        let exp_second = create_string_vector(vec!["A", "B", "C"]);
+
+        equalise_input_vectors(&mut first_vector, &mut second_vector);
+        assert_eq!(exp_first, first_vector);
+        assert_eq!(exp_second, second_vector);
     }
 
     #[test]

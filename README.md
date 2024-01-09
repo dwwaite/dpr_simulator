@@ -183,7 +183,7 @@ df.groupby("Target_AC").agg({"Total_damage": ['min', 'median', 'max']})
 
 Things to add in the future
 
-- [ ] Resize the hit and weapon damage vectors, in case uneven inputs are provided.
+- [x] Resize the hit and weapon damage vectors, in case uneven inputs are provided.
 - [ ] Add bonus damage rules (e.g smites)
 - [ ] Add selective bonus damage rules (e.g. brutual critical, smites on criticals)
 

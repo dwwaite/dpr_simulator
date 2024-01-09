@@ -13,11 +13,16 @@ fn main() {
         false => Ruleset::DND5e,
     };
 
+    // Confirm that the hit and attack vectors are equal in length
+    let mut hit_vector = cli.to_hit;
+    let mut dmg_vector = cli.weapon_details;
+    dpr_simulator::equalise_input_vectors(&mut hit_vector, &mut dmg_vector);
+
     // Process the information and capture results as a polars DataFrame
     let mut output_df = dpr_simulator::process_simulation(
         cli.ac_targets,
-        cli.to_hit,
-        cli.weapon_details,
+        hit_vector,
+        dmg_vector,
         ruleset,
         cli.number_turns,
     );
@@ -43,13 +48,12 @@ fn store_output(output_path: &str, output_df: &mut DataFrame) -> () {
             println!("ERROR: {}", e);
             std::process::exit(1);
         }
-    }   
+    }
 }
 
 #[derive(Parser)]
 struct Cli {
     // Build the CLI input arguments and options.
-
     /// Space-delimited AC values to test against
     #[arg(short, long, value_name = "AC TARGETS", num_args = 1.., value_delimiter = ' ', default_values_t = vec![12, 14, 16, 18, 20])]
     ac_targets: Vec<i32>,
