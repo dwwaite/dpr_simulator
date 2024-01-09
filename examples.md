@@ -18,7 +18,7 @@ A few examples of the tool in action for some Pathfinder martial comparisons
 dpr_simulator --use-pf2e-criticals --ac-targets 14 16 18 20 22 24 \
     --to-hit "1d20+15 1d20+15-5+2" \
     --weapon-details "2d8+4 2d8+4" \
-    --output fighter_1h.parquet
+    --output outputs/fighter_1h.parquet
 ```
 
 <details>
@@ -43,7 +43,7 @@ dpr_simulator --use-pf2e-criticals --ac-targets 14 16 18 20 22 24 \
 dpr_simulator --use-pf2e-criticals --ac-targets 14 16 18 20 22 24 \
     --to-hit "1d20+15 1d20+15-2" \
     --weapon-details "2d8+4 2d8+4" \
-    --output fighter_dw.parquet
+    --output outputs/fighter_dw.parquet
 ```
 
 <details>
@@ -67,7 +67,7 @@ dpr_simulator --use-pf2e-criticals --ac-targets 14 16 18 20 22 24 \
 dpr_simulator --use-pf2e-criticals --ac-targets 14 16 18 20 22 24 \
     --to-hit "1d20+15 1d20+15" \
     --weapon-details "2d8+4 2d6+4" \
-    --output fighter_dw_agile.parquet
+    --output outputs/fighter_dw_agile.parquet
 ```
 
 <details>
@@ -93,7 +93,7 @@ dpr_simulator --use-pf2e-criticals --ac-targets 14 16 18 20 22 24 \
 dpr_simulator --use-pf2e-criticals --ac-targets 14 16 18 20 22 24 \
     --to-hit "1d20+15 1d20+15-5" \
     --weapon-details "2d12+4 2d12+4" \
-    --output fighter_2h.parquet
+    --output outputs/fighter_2h.parquet
 ```
 
 <details>
@@ -128,7 +128,7 @@ dpr_simulator --use-pf2e-criticals --ac-targets 14 16 18 20 22 24 \
 dpr_simulator --use-pf2e-criticals --ac-targets 14 16 18 20 22 24 \
     --to-hit "1d20+15 1d20+15-5" \
     --weapon-details "2d12+8 2d12+8" \
-    --output barbarian_2h_dragon.parquet
+    --output outputs/barbarian_2h_dragon.parquet
 ```
 
 <details>
@@ -156,7 +156,7 @@ dpr_simulator --use-pf2e-criticals --ac-targets 14 16 18 20 22 24 \
 dpr_simulator --use-pf2e-criticals --ac-targets 14 16 18 20 22 24 \
     --to-hit "1d20+15 1d20+15-5" \
     --weapon-details "2d12+6 2d12+6" \
-    --output barbarian_2h.parquet
+    --output outputs/barbarian_2h.parquet
 ```
 
 <details>
