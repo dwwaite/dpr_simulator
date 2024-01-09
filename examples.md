@@ -22,7 +22,7 @@ dpr_simulator --use-pf2e-criticals --ac-targets 14 16 18 20 22 24 \
 ```
 
 <details>
-<summary>Results</results>
+<summary>Results</summary>
 
 |Target AC|Hits per round (mean)|Critical hits per round (mean)|Damage per round (mean)|
 |:---:|:---:|:---:|:---:|
@@ -47,7 +47,7 @@ dpr_simulator --use-pf2e-criticals --ac-targets 14 16 18 20 22 24 \
 ```
 
 <details>
-<summary>Results</results>
+<summary>Results</summary>
 
 |Target AC|Hits per round (mean)|Critical hits per round (mean)|Damage per round (mean)|
 |:---:|:---:|:---:|:---:|
@@ -71,7 +71,7 @@ dpr_simulator --use-pf2e-criticals --ac-targets 14 16 18 20 22 24 \
 ```
 
 <details>
-<summary>Results</results>
+<summary>Results</summary>
 
 |Target AC|Hits per round (mean)|Critical hits per round (mean)|Damage per round (mean)|
 |:---:|:---:|:---:|:---:|
@@ -97,7 +97,7 @@ dpr_simulator --use-pf2e-criticals --ac-targets 14 16 18 20 22 24 \
 ```
 
 <details>
-<summary>Results</results>
+<summary>Results</summary>
 
 |Target AC|Hits per round (mean)|Critical hits per round (mean)|Damage per round (mean)|
 |:---:|:---:|:---:|:---:|
@@ -132,7 +132,7 @@ dpr_simulator --use-pf2e-criticals --ac-targets 14 16 18 20 22 24 \
 ```
 
 <details>
-<summary>Results</results>
+<summary>Results</summary>
 
 |Target AC|Hits per round (mean)|Critical hits per round (mean)|Damage per round (mean)|
 |:---:|:---:|:---:|:---:|
@@ -160,7 +160,7 @@ dpr_simulator --use-pf2e-criticals --ac-targets 14 16 18 20 22 24 \
 ```
 
 <details>
-<summary>Results</results>
+<summary>Results</summary>
 
 |Target AC|Hits per round (mean)|Critical hits per round (mean)|Damage per round (mean)|
 |:---:|:---:|:---:|:---:|
