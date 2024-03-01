@@ -1,6 +1,6 @@
-# Examples
+# Pathfinder 2E: Fighter and Barbarian
 
-A few examples of the tool in action for some Pathfinder martial comparisons
+A few examples of the tool in action for some Pathfinder martial comparisons.
 
 ---
 
