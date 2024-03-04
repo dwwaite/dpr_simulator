@@ -117,6 +117,13 @@ dpr_simulation --weapon-details "1d8,1d6+3" ...
 
 >As with the `--to-hit` parameter, rolls can also be rolled with Advantage or other modifiers.
 
+>__Rolling [fatal dice](https://2e.aonprd.com/Traits.aspx?ID=178)__
+>
+>The tool also supports rolling dice with the *fatal* trait from Pathfinder 2e. This is an optional behaviour, and is enacted as an overwrite on dice size when writing the roll details like so:
+>```bash
+>dpr_simulation --weapon-details "2f6~10+5" ...
+>```
+
 **Output**
 
 The name of the file to which results are written. Results are compressed in the [Apache Parquet](https://parquet.apache.org/) format. This can easily be parsed using libraries like [pandas](https://pandas.pydata.org/) or [polars](https://pola.rs/) in `python`, or [read_parquet.R](https://rdrr.io/cran/arrow/man/read_parquet.html) in `R`.
