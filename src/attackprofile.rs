@@ -99,16 +99,14 @@ impl AttackProfile {
     ) -> i32 {
         // Calculate the damage to be added to the running total.
 
-        let dmg_roll = damage_dice.roll(roll_element);
-
         match (state, ruleset) {
             (&HitResult::CriticalHit, &Ruleset::PF2e) => {
-                2 * (dmg_roll + damage_dice.static_modifier)
+                damage_dice.roll_critical(roll_element) + 2 * damage_dice.static_modifier
             }
             (&HitResult::CriticalHit, &Ruleset::DND5e) => {
-                (2 * dmg_roll) + damage_dice.static_modifier
+                damage_dice.roll_critical(roll_element) + damage_dice.static_modifier
             }
-            (&HitResult::Hit, _) => dmg_roll + damage_dice.static_modifier,
+            (&HitResult::Hit, _) => damage_dice.roll(roll_element) + damage_dice.static_modifier,
             _ => 0,
         }
     }
@@ -151,8 +149,7 @@ impl AttackProfile {
 
 #[cfg(test)]
 mod tests {
-    use crate::{dice::Die, Reroll};
-
+    use crate::{dice::DiceCollection, Reroll};
     use super::*;
 
     //region Attack rolls
@@ -191,12 +188,10 @@ mod tests {
 
         let mut roll_element = rand::thread_rng();
 
-        let obs_result = AttackProfile::roll_5e_attack(
-            0,
-            &DiceContext::new(vec![Die::new(20, 20, Reroll::Standard)], 0),
-            &mut roll_element,
-        );
+        let mut cheating_die = DiceCollection::new(1, 20, Reroll::Standard);
+        cheating_die.increase_minimum(20);
 
+        let obs_result = AttackProfile::roll_5e_attack(0, &DiceContext::new(vec![cheating_die], 0), &mut roll_element);
         assert_eq!(HitResult::CriticalHit, obs_result);
     }
 
@@ -221,7 +216,7 @@ mod tests {
 
         let obs_result = AttackProfile::roll_2e_attack(
             0,
-            &DiceContext::new(vec![Die::new(1, 1, Reroll::Standard)], 1),
+            &DiceContext::new(vec![DiceCollection::new(1, 1, Reroll::Standard)], 1),
             &mut roll_element,
         );
         assert_eq!(HitResult::Miss, obs_result);
@@ -235,7 +230,7 @@ mod tests {
 
         let obs_result = AttackProfile::roll_2e_attack(
             0,
-            &DiceContext::new(vec![Die::new(2, 2, Reroll::Standard)], 1),
+            &DiceContext::new(vec![DiceCollection::new(2, 2, Reroll::Standard)], 1),
             &mut roll_element,
         );
 
@@ -251,7 +246,7 @@ mod tests {
 
         let obs_result = AttackProfile::roll_2e_attack(
             1,
-            &DiceContext::new(vec![Die::new(2, 2, Reroll::Standard)], 10),
+            &DiceContext::new(vec![DiceCollection::new(2, 2, Reroll::Standard)], 10),
             &mut roll_element,
         );
 
@@ -267,7 +262,7 @@ mod tests {
 
         let obs_result = AttackProfile::roll_2e_attack(
             19,
-            &DiceContext::new(vec![Die::new(20, 20, Reroll::Standard)], 0),
+            &DiceContext::new(vec![DiceCollection::new(20, 20, Reroll::Standard)], 0),
             &mut roll_element,
         );
 

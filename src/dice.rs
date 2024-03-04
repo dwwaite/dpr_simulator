@@ -11,7 +11,6 @@ pub struct DiceCollection {
     roll_max: i32,
     roll_modifier: Reroll,
     dice_mode: DiceMode,
-    alt_min: i32,
     alt_max: i32,
 }
 
@@ -23,7 +22,6 @@ impl DiceCollection {
             roll_max: roll_max,
             roll_modifier: roll_modifier,
             dice_mode: DiceMode::Standard,
-            alt_min: -1,
             alt_max: -1,
         }
     }
@@ -61,6 +59,12 @@ impl DiceCollection {
                 )
             },
         }
+    }
+
+    pub fn increase_minimum(&mut self, roll_min: i32) {
+        // Change the minimum roll size for die behaviour. Primarily used for unit testing.
+
+        self.roll_min = roll_min;
     }
 
     pub fn set_fatal(&mut self, alt_max: i32) {
@@ -177,6 +181,16 @@ mod tests {
         let std_total: i32 = std_results.iter().sum();
         let dis_total: i32 = dis_results.iter().sum();
         assert!(dis_total < std_total);
+    }
+
+    #[test]
+    fn test_increase_minimum() {
+        // Test the DiceCollection::set_fatal() function.
+
+        let mut dc = DiceCollection::new(1, 6, Reroll::Standard);
+        dc.increase_minimum(2);
+
+        assert_eq!(2, dc.roll_min);
     }
 
     #[test]
