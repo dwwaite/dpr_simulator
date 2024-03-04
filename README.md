@@ -115,7 +115,7 @@ Mixed die notations are also allowed, to account for situations where a weapon o
 dpr_simulation --weapon-details "1d8,1d6+3" ...
 ```
 
->As with the `--to-hit` parameter, rolls can also be rolled with Advantage or other modifiers.
+As with the `--to-hit` parameter, rolls can also be rolled with Advantage or other modifiers.
 
 >__Rolling [fatal dice](https://2e.aonprd.com/Traits.aspx?ID=178)__
 >
