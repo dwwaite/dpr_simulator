@@ -3,8 +3,6 @@ use regex::Regex;
 
 use crate::{dice::DiceCollection, Reroll};
 
-const ROLL_MIN: i32 = 1;
-
 #[derive(Debug, PartialEq)]
 pub struct DiceContext {
     dice: Vec<DiceCollection>,
@@ -27,12 +25,11 @@ impl DiceContext {
         let regex_regular = Regex::new(r"\d+d\d+").unwrap();
 
         match regex_regular.find(notation) {
-    
             Some(ref x) => {
                 let tokens: Vec<&str> = x.as_str().split("d").collect();
                 let n_die = tokens[0].parse().unwrap();
                 let s_die = tokens[1].parse().unwrap();
-    
+
                 Some((n_die, s_die))
             }
             None => None,
@@ -48,13 +45,13 @@ impl DiceContext {
         let regex_split = Regex::new(r"f|\~").unwrap();
 
         match regex_fatal.find(notation) {
-
             Some(ref x) => {
                 let string_capture: &str = x.as_str();
-                let tokens: Vec<i32> = regex_split.split(string_capture)
+                let tokens: Vec<i32> = regex_split
+                    .split(string_capture)
                     .map(|x| x.parse().unwrap())
                     .collect();
-    
+
                 Some((tokens[0], tokens[1], tokens[2]))
             }
             None => None,
@@ -109,13 +106,11 @@ impl DiceContext {
 
         // Parse the die from the notation string.
         for n in notation.split(",") {
-
             if let Some((n_die, die_size)) = DiceContext::parse_regular_die(n) {
                 // If a standard (1d4) notation is found, store a base die collection.
 
                 let reroll_modifier = DiceContext::parse_reroll_elements(n);
                 dice_vector.push(DiceCollection::new(n_die, die_size, reroll_modifier));
-
             } else if let Some((n_die, die_size, fatal_size)) = DiceContext::parse_fatal_die(n) {
                 // If a fatal (1f4~6) notation is found, store as a die with the Fatal behaviour.
 
@@ -133,10 +128,7 @@ impl DiceContext {
     pub fn roll(&self, roll_element: &mut ThreadRng) -> i32 {
         // Roll the outcome for the DiceContext element.
 
-        self.dice
-            .iter()
-            .map(|d| d.roll(roll_element))
-            .sum()
+        self.dice.iter().map(|d| d.roll(roll_element)).sum()
     }
 
     pub fn roll_critical(&self, roll_element: &mut ThreadRng) -> i32 {
@@ -175,7 +167,7 @@ mod tests {
 
     #[test]
     fn test_parse_static_elements_single_pos() {
-    // Test the DiceContext.parse_static_elements() function for a positive element.
+        // Test the DiceContext.parse_static_elements() function for a positive element.
 
         let obs_result: i32 = DiceContext::parse_static_elements("1d8+5");
         assert_eq!(5, obs_result);
@@ -282,13 +274,8 @@ mod tests {
         let mut f_die = DiceCollection::new(2, 6, Reroll::Standard);
         f_die.set_fatal(8);
 
-        let exp_context = DiceContext::new(
-            vec![
-                DiceCollection::new(1, 4, Reroll::Standard),
-                f_die
-            ],
-            7,
-        );
+        let exp_context =
+            DiceContext::new(vec![DiceCollection::new(1, 4, Reroll::Standard), f_die], 7);
 
         let obs_context: DiceContext = DiceContext::parse_dice_string("1d4,2f6~8+7");
         assert_eq!(exp_context, obs_context);

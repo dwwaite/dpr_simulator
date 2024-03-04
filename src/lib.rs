@@ -30,6 +30,14 @@ pub enum Ruleset {
     PF2e,
 }
 
+#[derive(Debug, PartialEq)]
+pub enum DiceMode {
+    Standard,
+    Fatal,
+    OnCritical,
+    OnHit,
+}
+
 //region Private functions
 
 fn resize_vector(base_vector: &mut Vec<String>, new_value: String, iterations: usize) {
@@ -223,7 +231,7 @@ pub fn summarise_results(results_df: DataFrame) -> DataFrame {
 #[cfg(test)]
 mod tests {
 
-    use crate::dice::Die;
+    use crate::dice::DiceCollection;
 
     use super::*;
     use std::fs;
@@ -376,9 +384,12 @@ mod tests {
         // Test the behaviour of the evaluate_attack_profile() function.
         // Using very carefully controlled dice to have a predictable output.
 
+        let mut test_die = DiceCollection::new(1, 3, Reroll::Standard);
+        test_die.increase_minimum(2);
+
         let attackprofile = AttackProfile::new(
             1,
-            vec![DiceContext::new(vec![Die::new(2, 3, Reroll::Standard)], 5)],
+            vec![DiceContext::new(vec![test_die], 5)],
             vec![DiceContext::parse_dice_string("1d1+1")],
             Ruleset::DND5e,
         );

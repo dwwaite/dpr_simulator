@@ -31,36 +31,36 @@ impl DiceCollection {
         roll_element.gen_range(min..max + 1)
     }
 
-    fn resolve_roll(roll_min: i32, roll_max: i32, roll_modifier: &Reroll, roll_element: &mut ThreadRng) -> i32 {
+    fn resolve_roll(
+        roll_min: i32,
+        roll_max: i32,
+        roll_modifier: &Reroll,
+        roll_element: &mut ThreadRng,
+    ) -> i32 {
         // Resolve the outcome for the die rolls with regards to advantage mechanics.
 
         match roll_modifier {
             Reroll::Standard => DiceCollection::make_roll(roll_min, roll_max, roll_element),
-            Reroll::Advantage => {
-                max(
-                    DiceCollection::make_roll(roll_min, roll_max, roll_element),
-                    DiceCollection::make_roll(roll_min, roll_max, roll_element),
-                )
-            },
-            Reroll::DoubleAdvantage => {
-                *vec![
-                    DiceCollection::make_roll(roll_min, roll_max, roll_element),
-                    DiceCollection::make_roll(roll_min, roll_max, roll_element),
-                    DiceCollection::make_roll(roll_min, roll_max, roll_element),
-                ]
-                .iter()
-                .max()
-                .unwrap()
-            },
-            Reroll::Disadvantage => {
-                min(
-                    DiceCollection::make_roll(roll_min, roll_max, roll_element),
-                    DiceCollection::make_roll(roll_min, roll_max, roll_element),
-                )
-            },
+            Reroll::Advantage => max(
+                DiceCollection::make_roll(roll_min, roll_max, roll_element),
+                DiceCollection::make_roll(roll_min, roll_max, roll_element),
+            ),
+            Reroll::DoubleAdvantage => *vec![
+                DiceCollection::make_roll(roll_min, roll_max, roll_element),
+                DiceCollection::make_roll(roll_min, roll_max, roll_element),
+                DiceCollection::make_roll(roll_min, roll_max, roll_element),
+            ]
+            .iter()
+            .max()
+            .unwrap(),
+            Reroll::Disadvantage => min(
+                DiceCollection::make_roll(roll_min, roll_max, roll_element),
+                DiceCollection::make_roll(roll_min, roll_max, roll_element),
+            ),
         }
     }
 
+    #[allow(dead_code)]
     pub fn increase_minimum(&mut self, roll_min: i32) {
         // Change the minimum roll size for die behaviour. Primarily used for unit testing.
 
@@ -81,7 +81,14 @@ impl DiceCollection {
             // Currently there are no alternate paths for regular rolls.
             _ => {
                 let running_total: i32 = (0..self.n_dice)
-                    .map(|_| DiceCollection::resolve_roll(self.roll_min, self.roll_max, &self.roll_modifier, roll_element))
+                    .map(|_| {
+                        DiceCollection::resolve_roll(
+                            self.roll_min,
+                            self.roll_max,
+                            &self.roll_modifier,
+                            roll_element,
+                        )
+                    })
                     .sum();
                 running_total
             }
@@ -97,11 +104,18 @@ impl DiceCollection {
                 // Fatal rolls as double dice + 1, at an increased die size.
                 let n_rolls = 2 * self.n_dice + 1;
                 let running_total: i32 = (0..n_rolls)
-                    .map(|_| DiceCollection::resolve_roll(self.roll_min, self.alt_max, &self.roll_modifier, roll_element))
+                    .map(|_| {
+                        DiceCollection::resolve_roll(
+                            self.roll_min,
+                            self.alt_max,
+                            &self.roll_modifier,
+                            roll_element,
+                        )
+                    })
                     .sum();
                 running_total
-            },
-            _ => 0
+            }
+            _ => 0,
         }
     }
 }
@@ -124,7 +138,9 @@ mod tests {
         // Test the DiceCollection::make_roll() function, ensuring the minimum and maximum are captured.
 
         let mut roll_element = rand::thread_rng();
-        let roll_results: Vec<i32> = (0..10000).map(|_| DiceCollection::make_roll(1, 10, &mut roll_element)).collect();
+        let roll_results: Vec<i32> = (0..10000)
+            .map(|_| DiceCollection::make_roll(1, 10, &mut roll_element))
+            .collect();
 
         let obs_results: (i32, i32) = unpack_roll_vector(&roll_results);
         assert_eq!((1, 10), obs_results);
@@ -135,7 +151,9 @@ mod tests {
         // Test the DiceCollection::resolve_roll() function for Standard dice roll mechanics.
 
         let mut roll_element = rand::thread_rng();
-        let roll_results: Vec<i32> = (0..10000).map(|_| DiceCollection::resolve_roll(1, 10, &Reroll::Standard, &mut roll_element)).collect();
+        let roll_results: Vec<i32> = (0..10000)
+            .map(|_| DiceCollection::resolve_roll(1, 10, &Reroll::Standard, &mut roll_element))
+            .collect();
 
         let obs_results: (i32, i32) = unpack_roll_vector(&roll_results);
         assert_eq!((1, 10), obs_results);
@@ -147,8 +165,12 @@ mod tests {
         // Essentially a confirmation that on average Advantage roll is higher than Standard rolls.
 
         let mut roll_element = rand::thread_rng();
-        let std_results: Vec<i32> = (0..10000).map(|_| DiceCollection::resolve_roll(1, 10, &Reroll::Standard, &mut roll_element)).collect();
-        let adv_results: Vec<i32> = (0..10000).map(|_| DiceCollection::resolve_roll(1, 10, &Reroll::Advantage, &mut roll_element)).collect();
+        let std_results: Vec<i32> = (0..10000)
+            .map(|_| DiceCollection::resolve_roll(1, 10, &Reroll::Standard, &mut roll_element))
+            .collect();
+        let adv_results: Vec<i32> = (0..10000)
+            .map(|_| DiceCollection::resolve_roll(1, 10, &Reroll::Advantage, &mut roll_element))
+            .collect();
 
         let std_total: i32 = std_results.iter().sum();
         let adv_total: i32 = adv_results.iter().sum();
@@ -161,8 +183,14 @@ mod tests {
         // Essentially a confirmation that on average DoubleAdvantage roll is higher than Advantage rolls.
 
         let mut roll_element = rand::thread_rng();
-        let adv_results: Vec<i32> = (0..10000).map(|_| DiceCollection::resolve_roll(1, 10, &Reroll::Advantage, &mut roll_element)).collect();
-        let dbl_results: Vec<i32> = (0..10000).map(|_| DiceCollection::resolve_roll(1, 10, &Reroll::DoubleAdvantage, &mut roll_element)).collect();
+        let adv_results: Vec<i32> = (0..10000)
+            .map(|_| DiceCollection::resolve_roll(1, 10, &Reroll::Advantage, &mut roll_element))
+            .collect();
+        let dbl_results: Vec<i32> = (0..10000)
+            .map(|_| {
+                DiceCollection::resolve_roll(1, 10, &Reroll::DoubleAdvantage, &mut roll_element)
+            })
+            .collect();
 
         let adv_total: i32 = adv_results.iter().sum();
         let double_total: i32 = dbl_results.iter().sum();
@@ -175,8 +203,12 @@ mod tests {
         // Essentially a confirmation that on average Disadvantage roll is lower than Standard rolls.
 
         let mut roll_element = rand::thread_rng();
-        let std_results: Vec<i32> = (0..10000).map(|_| DiceCollection::resolve_roll(1, 10, &Reroll::Advantage, &mut roll_element)).collect();
-        let dis_results: Vec<i32> = (0..10000).map(|_| DiceCollection::resolve_roll(1, 10, &Reroll::Disadvantage, &mut roll_element)).collect();
+        let std_results: Vec<i32> = (0..10000)
+            .map(|_| DiceCollection::resolve_roll(1, 10, &Reroll::Advantage, &mut roll_element))
+            .collect();
+        let dis_results: Vec<i32> = (0..10000)
+            .map(|_| DiceCollection::resolve_roll(1, 10, &Reroll::Disadvantage, &mut roll_element))
+            .collect();
 
         let std_total: i32 = std_results.iter().sum();
         let dis_total: i32 = dis_results.iter().sum();
@@ -225,9 +257,12 @@ mod tests {
         // Expected roll values are double the minimum and maximum per die rolled.
 
         let dc = DiceCollection::new(1, 10, Reroll::Standard);
-        let mut roll_element = rand::thread_rng();
 
-        let results: Vec<i32> = (0..10000).map(|_| dc.roll_critical(&mut roll_element)).collect();
+        let mut roll_element = rand::thread_rng();
+        let results: Vec<i32> = (0..10000)
+            .map(|_| dc.roll_critical(&mut roll_element))
+            .collect();
+
         let (obs_min, obs_max) = unpack_roll_vector(&results);
         assert_eq!(2, obs_min);
         assert_eq!(20, obs_max);
@@ -242,7 +277,10 @@ mod tests {
         dc.set_fatal(12);
 
         let mut roll_element = rand::thread_rng();
-        let results: Vec<i32> = (0..10000).map(|_| dc.roll_critical(&mut roll_element)).collect();
+        let results: Vec<i32> = (0..10000)
+            .map(|_| dc.roll_critical(&mut roll_element))
+            .collect();
+
         let (obs_min, obs_max) = unpack_roll_vector(&results);
         assert_eq!(3, obs_min);
         assert_eq!(36, obs_max);

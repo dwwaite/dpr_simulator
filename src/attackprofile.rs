@@ -149,10 +149,8 @@ impl AttackProfile {
 
 #[cfg(test)]
 mod tests {
-    use crate::{dice::DiceCollection, Reroll};
     use super::*;
-
-    //region Attack rolls
+    use crate::{dice::DiceCollection, Reroll};
 
     #[test]
     fn test_roll_attack_dnd5e_miss() {
@@ -191,7 +189,11 @@ mod tests {
         let mut cheating_die = DiceCollection::new(1, 20, Reroll::Standard);
         cheating_die.increase_minimum(20);
 
-        let obs_result = AttackProfile::roll_5e_attack(0, &DiceContext::new(vec![cheating_die], 0), &mut roll_element);
+        let obs_result = AttackProfile::roll_5e_attack(
+            0,
+            &DiceContext::new(vec![cheating_die], 0),
+            &mut roll_element,
+        );
         assert_eq!(HitResult::CriticalHit, obs_result);
     }
 
@@ -388,8 +390,6 @@ mod tests {
         );
         assert_eq!(obs_dmg_pf, 0);
     }
-
-    //endregion
 
     #[test]
     fn test_roll_turn() {
