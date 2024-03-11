@@ -15,10 +15,7 @@ A few examples of the tool in action for some Pathfinder martial comparisons.
 1. Hit w/ offguard, MAP-5
 
 ```bash
-dpr_simulator --use-pf2e-criticals --ac-targets 14 16 18 20 22 24 \
-    --to-hit "1d20+15 1d20+15-5+2" \
-    --weapon-details "2d8+4 2d8+4" \
-    --output outputs/fighter_1h.parquet
+dpr_simulator --use-pf2e-criticals --ac-targets 14 16 18 20 22 24 --to-hit "1d20+15" "1d20+15-5+2" --weapon-details "2d8+4" "2d8+4"
 ```
 
 <details>
@@ -40,10 +37,7 @@ dpr_simulator --use-pf2e-criticals --ac-targets 14 16 18 20 22 24 \
 1. Double slice with a non-agile weapon
 
 ```bash
-dpr_simulator --use-pf2e-criticals --ac-targets 14 16 18 20 22 24 \
-    --to-hit "1d20+15 1d20+15-2" \
-    --weapon-details "2d8+4 2d8+4" \
-    --output outputs/fighter_dw.parquet
+dpr_simulator --use-pf2e-criticals --ac-targets 14 16 18 20 22 24 --to-hit "1d20+15" "1d20+15-2" --weapon-details "2d8+4" "2d8+4"
 ```
 
 <details>
@@ -64,10 +58,7 @@ dpr_simulator --use-pf2e-criticals --ac-targets 14 16 18 20 22 24 \
    1. Assume 1 die size smaller
 
 ```bash
-dpr_simulator --use-pf2e-criticals --ac-targets 14 16 18 20 22 24 \
-    --to-hit "1d20+15 1d20+15" \
-    --weapon-details "2d8+4 2d6+4" \
-    --output outputs/fighter_dw_agile.parquet
+dpr_simulator --use-pf2e-criticals --ac-targets 14 16 18 20 22 24 --to-hit "1d20+15" "1d20+15" --weapon-details "2d8+4" "2d6+4"
 ```
 
 <details>
@@ -90,10 +81,7 @@ dpr_simulator --use-pf2e-criticals --ac-targets 14 16 18 20 22 24 \
 1. Hit, MAP-5
 
 ```bash
-dpr_simulator --use-pf2e-criticals --ac-targets 14 16 18 20 22 24 \
-    --to-hit "1d20+15 1d20+15-5" \
-    --weapon-details "2d12+4 2d12+4" \
-    --output outputs/fighter_2h.parquet
+dpr_simulator --use-pf2e-criticals --ac-targets 14 16 18 20 22 24 --to-hit "1d20+15" "1d20+15-5" --weapon-details "2d12+4" "2d12+4"
 ```
 
 <details>
@@ -125,10 +113,7 @@ dpr_simulator --use-pf2e-criticals --ac-targets 14 16 18 20 22 24 \
 1. Hit, MAP-5
 
 ```bash
-dpr_simulator --use-pf2e-criticals --ac-targets 14 16 18 20 22 24 \
-    --to-hit "1d20+15 1d20+15-5" \
-    --weapon-details "2d12+8 2d12+8" \
-    --output outputs/barbarian_2h_dragon.parquet
+dpr_simulator --use-pf2e-criticals --ac-targets 14 16 18 20 22 24 --to-hit "1d20+15" "1d20+15-5" --weapon-details "2d12+8" "2d12+8"
 ```
 
 <details>
@@ -153,10 +138,7 @@ dpr_simulator --use-pf2e-criticals --ac-targets 14 16 18 20 22 24 \
 1. Hit, MAP-5
 
 ```bash
-dpr_simulator --use-pf2e-criticals --ac-targets 14 16 18 20 22 24 \
-    --to-hit "1d20+15 1d20+15-5" \
-    --weapon-details "2d12+6 2d12+6" \
-    --output outputs/barbarian_2h.parquet
+dpr_simulator --use-pf2e-criticals --ac-targets 14 16 18 20 22 24 --to-hit "1d20+15" "1d20+15-5" --weapon-details "2d12+6" "2d12+6"
 ```
 
 <details>
