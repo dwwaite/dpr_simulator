@@ -6,6 +6,7 @@ Messing around in `rust` to make a damage calculator for D&D 5e or Pathfinder 2e
 
 1. [Background](#background)
 1. [Detailed description of commands](#detailed-description-of-commands)
+1. [Examples](#examples)
 1. [What to do with the output](#what-to-do-with-the-output)
 1. [To do list](#to-do-list)
 
@@ -14,8 +15,6 @@ Messing around in `rust` to make a damage calculator for D&D 5e or Pathfinder 2e
 ## Background
 
 Performs a simulation over a set of armour class values. Each simulation consists of a set of attacks, representing a round of combat in either the D&D or Pathfinder rules.
-
-
 
 ---
 
@@ -140,7 +139,17 @@ Changes the logic to use the Pathfinder 2e rules for interpretting natural 1s an
 1. If a natural 1, or the AC is missed by 10 or more, decrease the degree of success by one.
 1. On a critical hit, double **_all_** damage (D&D 5e rule is to double just the dice rolled).
 
-In practice this *mostly* just means that it is easier to score critical hits against enemies with lower AC values but there are some situations where the difference between the t-hit and AC are so great that a natural 1 can still hit.
+In practice this *mostly* just means that it is easier to score critical hits against enemies with lower AC values but there are some situations where the difference between the to-hit and AC are so great that a natural 1 can still hit.
+
+---
+
+## Examples
+
+Since I made this tool for myself, there are a few questions I was interested in answering with it:
+
+1. [How do different Pathfinder 2E Gunslinger builds compare?](./docs/example_2e_gunslinger.md)
+1. [How do different Pathfinder 2E melee builds compare](./docs/example_2e_melee.md)
+1. [Can dual-wielding be good for a D&D 5E Barbarian?](./docs/example_5e_barbarian.md)
 
 ---
 
