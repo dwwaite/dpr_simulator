@@ -1,4 +1,5 @@
 use dicecontext::DiceContext;
+use rayon::prelude::*;
 use polars::prelude::*;
 use simple_error::bail;
 use std::error::Error;
@@ -97,7 +98,7 @@ fn results_to_dataframe(
     let iteration_counter: Vec<i32> = (1..max_len).collect();
     let ac_counter: Vec<i32> = vec![ac_value; crit_counter.len()];
 
-    // Create the DataFrame. THis function cannot fail ni this scope, so just unwrap and return.
+    // Create the DataFrame. This function cannot fail in this scope, so just unwrap and return.
     df!(
         "Iteration" => &iteration_counter,
         "Target_AC" => &ac_counter,
@@ -163,21 +164,47 @@ pub fn process_simulation(
     weapon_details: Vec<String>,
     ruleset: Ruleset,
     number_turns: i32,
+    n_threads: Option<usize>,
 ) -> DataFrame {
     // Partition the inputs over the range of AC values and simulate the attack turns.
 
     let profile_vector: Vec<AttackProfile> =
         map_profiles_to_ac(ac_targets, hit_details, weapon_details, ruleset);
 
-    let attack_results: Vec<LazyFrame> = profile_vector
-        .into_iter()
-        .map(|ap| evaluate_attack_profile(ap, number_turns).lazy())
-        .collect();
+    let attack_results: Vec<LazyFrame> = match n_threads {
+        Some(n) => {
+
+            let pool = rayon::ThreadPoolBuilder::new()
+                .num_threads(n)
+                .build()
+                .unwrap();
+
+            pool.install(|| {
+                profile_vector
+                    .into_par_iter()
+                    .map(|ap| evaluate_attack_profile(ap, number_turns).lazy())
+                    .collect()
+            })
+        },
+        None => {
+            profile_vector
+                .into_iter()
+                .map(|ap| evaluate_attack_profile(ap, number_turns).lazy())
+                .collect()
+        }
+    };
 
     // Documentation on the circumstances that cause the polars concat() function is lacking.
     // For now just unwrap and return until I get a sighting of an error, at which point a
     //  separate function might be required.
-    concat(attack_results, true, true)
+    let concat_args = UnionArgs {
+        parallel: true,
+        rechunk: true,
+        to_supertypes: false,
+        diagonal: false,
+        from_partitioned_ds: false
+    };
+    concat(attack_results, concat_args)
         .unwrap()
         .collect()
         .unwrap()
@@ -197,6 +224,8 @@ pub fn write_to_parquet(
         bail!(error_msg);
     }
 
+    // Add a sort to make sure the data is sorted by ascending AC/Iteration
+
     // If we get this far, no error was encountered.
     let target_file = create_result.unwrap();
     match ParquetWriter::new(target_file).finish(file_content) {
@@ -208,17 +237,17 @@ pub fn write_to_parquet(
 }
 
 pub fn summarise_results(results_df: DataFrame) -> DataFrame {
+    let agg_exprs = vec![
+        col("Number_hits").mean().alias("Hits per round (mean)"),
+        col("Number_crits").mean().alias("Critical hits per round (mean)"),
+        col("Total_damage").mean().alias("Damage per round (mean)"),
+    ];
+
     results_df
         .lazy()
-        .groupby(["Target_AC"])
-        .agg([
-            col("Number_hits").mean().alias("Hits per round (mean)"),
-            col("Number_crits")
-                .mean()
-                .alias("Critical hits per round (mean)"),
-            col("Total_damage").mean().alias("Damage per round (mean)"),
-        ])
-        .sort("Target_AC", Default::default())
+        .group_by(["Target_AC"])
+        .agg(agg_exprs)
+        .sort(["Target_AC"], Default::default())
         .rename(["Target_AC"], ["Target AC"])
         .collect()
         .unwrap()
@@ -477,6 +506,34 @@ mod tests {
             vec!["1d1+1".to_string()],
             Ruleset::DND5e,
             5,
+            None,
+        );
+        dataframes_are_equal(exp_df, obs_df);
+    }
+
+    #[test]
+    fn test_process_simulation_multithreaded() {
+        /* Test the complete run of the turnsimulation.process_simulation() function when
+            running with multiple threads through rayon. Only testing over the success case,
+            as internal behaviours are tested in relevant unit tests.
+        */
+
+        let exp_df = df![
+            "Iteration" => vec![1, 2, 3, 4, 5, 1, 2, 3, 4, 5],
+            "Target_AC" => vec![0, 0, 0, 0, 0, 10, 10, 10, 10, 10],
+            "Number_hits" => vec![1, 1, 1, 1, 1, 0, 0, 0, 0, 0],
+            "Number_crits" => vec![0; 10],
+            "Total_damage" => vec![2, 2, 2, 2, 2, 0, 0, 0, 0, 0],
+        ]
+        .unwrap();
+
+        let obs_df = process_simulation(
+            vec![0, 10],
+            vec!["1d1+1".to_string()],
+            vec!["1d1+1".to_string()],
+            Ruleset::DND5e,
+            5,
+            Some(2),
         );
         dataframes_are_equal(exp_df, obs_df);
     }

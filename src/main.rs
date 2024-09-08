@@ -25,6 +25,7 @@ fn main() {
         dmg_vector,
         ruleset,
         cli.number_turns,
+        cli.n_threads,
     );
 
     // Store the output if required
@@ -73,6 +74,10 @@ struct Cli {
     /// Number of turns to simulate
     #[arg(short, long, value_name = "NUMBER TURNS", default_value_t = 1_000_000)]
     number_turns: i32,
+
+    /// Number of threads for running in multi-threaded mode (optional)
+    #[arg(long, value_name = "N THREADS")]
+    n_threads: Option<usize>,
 
     /// Use Pathfinder 2e rules for critical hits and damage calculation
     #[arg(long, default_value_t = false)]
