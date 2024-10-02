@@ -5,6 +5,7 @@ The new Mutagenist looks like a viable melee combatant with the remastered **Bes
 Skimming through the `Monster Core` book, there are 348 creatures from level `-1` to `12`. Summarising their average AC by level:
 
 |Level|Number of entries|Mean AC|Median AC|
+|:---:|:---:|:---:|:---:|
 |-1|18|14.8|15.0|
 |0|11|15.1|15.0|
 |1|53|16.1|16.0|
@@ -84,7 +85,11 @@ dmg_array=("1d6+3" "1d6+3" "2d8+3" "2d8+3" "2d8+4" "2d8+4" "2d8+4" "2d10~10+4" "
 
 for i in {0..11};
 do
-    dpr_simulator --use-pf2e-criticals --ac-targets ${ac_array[$i]} --to-hit "1d20+${hit_array[$i]}" "1d20+${hit_array[$i]}-5" --weapon-details ${dmg_array[$i]} -o Alchemist_$(($i+1)).parquet
+    dpr_simulator --use-pf2e-criticals \
+        --ac-targets ${ac_array[$i]} \
+        --to-hit "1d20+${hit_array[$i]}" "1d20+${hit_array[$i]}-5" \
+        --weapon-details ${dmg_array[$i]} \
+        -o Alchemist_$(($i+1)).parquet
 done
 ```
 
@@ -118,7 +123,11 @@ dmg_array=("1d8+4" "1d8+4" "1d8+4" "2d8+4" "2d8+4" "2d8+4" "2d8+7" "2d8+7" "2d8+
 
 for i in {0..11};
 do
-    dpr_simulator --use-pf2e-criticals --ac-targets ${ac_array[$i]} --to-hit "1d20+${hit_array[$i]}" "1d20+${hit_array[$i]}-5" --weapon-details ${dmg_array[$i]} -o Fighter_$(($i+1)).parquet
+    dpr_simulator --use-pf2e-criticals \
+        --ac-targets ${ac_array[$i]} \
+        --to-hit "1d20+${hit_array[$i]}" "1d20+${hit_array[$i]}-5" \
+        --weapon-details ${dmg_array[$i]} \
+        -o Fighter_$(($i+1)).parquet
 done
 ```
 
@@ -130,14 +139,10 @@ done
 * Dragon Instinct, which is mostly just a flat damage boost here.
 * Starting with 4 STR, bumping to 4.5 at Level 5 and 5 at Level 10.
 
-
 Using a `1d8` weapon, with runes added at their item level.
 
 |Level|STR|Proficiency bonus|Item bonus|Total attack|Damage|Notes|
 |:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-
-Item|Total|Damage|Notes|
-
 |1|4|2|0|7|`1d8+8`|[Dragon Instinct](https://2e.aonprd.com/Instincts.aspx?ID=2), +4 damage when raging|
 |2|4|2|1|9|`1d8+8`|[Weapon Potency (+1 hit)](https://2e.aonprd.com/Equipment.aspx?ID=2830)|
 |3|4|2|1|10|`1d8+8`||
@@ -158,7 +163,11 @@ dmg_array=("1d8+8" "1d8+8" "1d8+8" "2d8+8" "2d8+8" "2d8+8" "2d8+10" "2d8+10" "2d
 
 for i in {0..11};
 do
-    dpr_simulator --use-pf2e-criticals --ac-targets ${ac_array[$i]} --to-hit "1d20+${hit_array[$i]}" "1d20+${hit_array[$i]}-5" --weapon-details ${dmg_array[$i]} -o Barbarian_$(($i+1)).parquet
+    dpr_simulator --use-pf2e-criticals \
+        --ac-targets ${ac_array[$i]} \
+        --to-hit "1d20+${hit_array[$i]}" "1d20+${hit_array[$i]}-5" \
+        --weapon-details ${dmg_array[$i]} \
+        -o Barbarian_$(($i+1)).parquet
 done
 ```
 
@@ -200,8 +209,6 @@ df = pl.concat(buffer)
     )
     .pivot(index='Level', on='Class', values=['Hit_perc', 'Total_damage'])
     .sort('Level', descending=False)
-    .select('Level', 'Hit_perc_Alchemist', 'Total_damage_Alchemist', 'Hit_perc_Fighter', 'Total_damage_Fighter', 'Hit_perc_Barbarian', 'Total_damage_Barbarian')
-    .write_csv('test.txt', separator='\t')
 )
 
 # View the distribution for a single hit, non-critical
