@@ -42,8 +42,8 @@ fn main() {
     println!("{}", summary_df);
 }
 
-fn store_output(output_path: &str, output_df: &mut DataFrame) -> () {
-    match dpr_simulator::write_to_parquet(&output_path, output_df) {
+fn store_output(output_path: &str, output_df: &mut DataFrame) {
+    match dpr_simulator::write_to_parquet(output_path, output_df) {
         Ok(_) => println!("Completed! Results written to file '{}'!", output_path),
         Err(e) => {
             println!("ERROR: {}", e);

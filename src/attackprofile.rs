@@ -17,10 +17,10 @@ impl AttackProfile {
         ruleset: Ruleset,
     ) -> AttackProfile {
         AttackProfile {
-            target_ac: target_ac,
-            hit_dice: hit_dice,
-            damage_dice: damage_dice,
-            ruleset: ruleset,
+            target_ac,
+            hit_dice,
+            damage_dice,
+            ruleset,
         }
     }
 
@@ -34,11 +34,11 @@ impl AttackProfile {
         let d20_roll = hit_die.roll(roll_element);
 
         if d20_roll == 20 {
-            return HitResult::CriticalHit;
+            HitResult::CriticalHit
         } else if d20_roll + hit_die.static_modifier >= target_ac {
-            return HitResult::Hit;
+            HitResult::Hit
         } else {
-            return HitResult::Miss;
+            HitResult::Miss
         }
     }
 
@@ -81,12 +81,12 @@ impl AttackProfile {
     fn track_hits(attack_result: &HitResult, crit_counter: &mut i32, hit_counter: &mut i32) {
         // Track any required changes in the attack roll.
 
-        match attack_result {
-            &HitResult::CriticalHit => {
+        match *attack_result {
+            HitResult::CriticalHit => {
                 *crit_counter += 1;
                 *hit_counter += 1;
             }
-            &HitResult::Hit => *hit_counter += 1,
+            HitResult::Hit => *hit_counter += 1,
             _ => (),
         }
     }
@@ -124,17 +124,17 @@ impl AttackProfile {
             // Perform the attack roll
             let attack_result = match self.ruleset {
                 Ruleset::DND5e => {
-                    AttackProfile::roll_5e_attack(self.target_ac, &hit_dice, roll_element)
+                    AttackProfile::roll_5e_attack(self.target_ac, hit_dice, roll_element)
                 }
                 Ruleset::PF2e => {
-                    AttackProfile::roll_2e_attack(self.target_ac, &hit_dice, roll_element)
+                    AttackProfile::roll_2e_attack(self.target_ac, hit_dice, roll_element)
                 }
             };
 
             // Track the result then assign damage
             AttackProfile::track_hits(&attack_result, &mut crit_counter, &mut hit_counter);
             total_damage += AttackProfile::determine_damage(
-                &damage_dice,
+                damage_dice,
                 roll_element,
                 &attack_result,
                 &self.ruleset,

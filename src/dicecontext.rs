@@ -12,8 +12,8 @@ pub struct DiceContext {
 impl DiceContext {
     pub fn new(dice: Vec<DiceCollection>, static_modifier: i32) -> DiceContext {
         DiceContext {
-            dice: dice,
-            static_modifier: static_modifier,
+            dice,
+            static_modifier,
         }
     }
 

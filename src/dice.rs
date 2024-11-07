@@ -17,10 +17,10 @@ pub struct DiceCollection {
 impl DiceCollection {
     pub fn new(n_dice: i32, roll_max: i32, roll_modifier: Reroll) -> DiceCollection {
         DiceCollection {
-            n_dice: n_dice,
+            n_dice,
             roll_min: 1,
-            roll_max: roll_max,
-            roll_modifier: roll_modifier,
+            roll_max,
+            roll_modifier,
             dice_mode: DiceMode::Standard,
             alt_max: -1,
         }
@@ -45,7 +45,7 @@ impl DiceCollection {
                 DiceCollection::make_roll(roll_min, roll_max, roll_element),
                 DiceCollection::make_roll(roll_min, roll_max, roll_element),
             ),
-            Reroll::DoubleAdvantage => *vec![
+            Reroll::DoubleAdvantage => *[
                 DiceCollection::make_roll(roll_min, roll_max, roll_element),
                 DiceCollection::make_roll(roll_min, roll_max, roll_element),
                 DiceCollection::make_roll(roll_min, roll_max, roll_element),
@@ -77,22 +77,20 @@ impl DiceCollection {
     pub fn roll(&self, roll_element: &mut ThreadRng) -> i32 {
         // Resolve the outcome for the regular die rolls with regards to advantage mechanics and dice behaviour.
 
-        match self.dice_mode {
-            // Currently there are no alternate paths for regular rolls.
-            _ => {
-                let running_total: i32 = (0..self.n_dice)
-                    .map(|_| {
-                        DiceCollection::resolve_roll(
-                            self.roll_min,
-                            self.roll_max,
-                            &self.roll_modifier,
-                            roll_element,
-                        )
-                    })
-                    .sum();
-                running_total
-            }
-        }
+        // Currently there are no alternate paths for regular rolls.
+        // In future could add alternative options with match on self.dice_mode
+        //match self.dice_mode {
+        let running_total: i32 = (0..self.n_dice)
+            .map(|_| {
+                DiceCollection::resolve_roll(
+                    self.roll_min,
+                    self.roll_max,
+                    &self.roll_modifier,
+                    roll_element,
+                )
+            })
+            .sum();
+        running_total
     }
 
     pub fn roll_critical(&self, roll_element: &mut ThreadRng) -> i32 {

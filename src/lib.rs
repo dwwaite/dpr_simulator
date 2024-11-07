@@ -1,9 +1,8 @@
 use dicecontext::DiceContext;
-use rayon::prelude::*;
 use polars::prelude::*;
+use rayon::prelude::*;
 use simple_error::bail;
-use std::error::Error;
-use std::fs::File;
+use std::{cmp::Ordering, error::Error, fs::File};
 
 mod attackprofile;
 use attackprofile::AttackProfile;
@@ -50,19 +49,19 @@ fn resize_vector(base_vector: &mut Vec<String>, new_value: String, iterations: u
 
 fn produce_attackprofile(
     target_ac: i32,
-    hit_details: &Vec<String>,
-    weapon_details: &Vec<String>,
+    hit_details: &[String],
+    weapon_details: &[String],
     ruleset: &Ruleset,
 ) -> AttackProfile {
     // Create a vector of AttackProfile structs corresponding to a vector of AC values.
 
     let hit_context = hit_details
-        .into_iter()
+        .iter()
         .map(|s| DiceContext::parse_dice_string(s))
         .collect();
 
     let weapon_context = weapon_details
-        .into_iter()
+        .iter()
         .map(|s| DiceContext::parse_dice_string(s))
         .collect();
 
@@ -142,19 +141,18 @@ pub fn equalise_input_vectors(first_vector: &mut Vec<String>, second_vector: &mu
     // Compare the lengths of two input vectors and replicate the last value of the shorter so that
     //  the lengths are equal.
 
-    if first_vector.len() == second_vector.len() {
-        // No-op if lengths are equal
-        ()
-    } else if first_vector.len() > second_vector.len() {
-        // Case if the first vector is longer than the second
-        let length_diff = first_vector.len() - second_vector.len();
-        let last_value = second_vector.last().unwrap().to_string();
-        resize_vector(second_vector, last_value, length_diff);
-    } else if first_vector.len() < second_vector.len() {
-        // Case if the second vector is longer than the first
-        let length_diff = second_vector.len() - first_vector.len();
-        let last_value = first_vector.last().unwrap().to_string();
-        resize_vector(first_vector, last_value, length_diff);
+    match first_vector.len().cmp(&second_vector.len()) {
+        Ordering::Greater => {
+            let length_diff = first_vector.len() - second_vector.len();
+            let last_value = second_vector.last().unwrap().to_string();
+            resize_vector(second_vector, last_value, length_diff);
+        }
+        Ordering::Less => {
+            let length_diff = second_vector.len() - first_vector.len();
+            let last_value = first_vector.last().unwrap().to_string();
+            resize_vector(first_vector, last_value, length_diff);
+        }
+        Ordering::Equal => (),
     }
 }
 
@@ -173,7 +171,6 @@ pub fn process_simulation(
 
     let attack_results: Vec<LazyFrame> = match n_threads {
         Some(n) => {
-
             let pool = rayon::ThreadPoolBuilder::new()
                 .num_threads(n)
                 .build()
@@ -185,13 +182,11 @@ pub fn process_simulation(
                     .map(|ap| evaluate_attack_profile(ap, number_turns).lazy())
                     .collect()
             })
-        },
-        None => {
-            profile_vector
-                .into_iter()
-                .map(|ap| evaluate_attack_profile(ap, number_turns).lazy())
-                .collect()
         }
+        None => profile_vector
+            .into_iter()
+            .map(|ap| evaluate_attack_profile(ap, number_turns).lazy())
+            .collect(),
     };
 
     // Documentation on the circumstances that cause the polars concat() function is lacking.
@@ -202,7 +197,7 @@ pub fn process_simulation(
         rechunk: true,
         to_supertypes: false,
         diagonal: false,
-        from_partitioned_ds: false
+        from_partitioned_ds: false,
     };
     concat(attack_results, concat_args)
         .unwrap()
@@ -239,7 +234,9 @@ pub fn write_to_parquet(
 pub fn summarise_results(results_df: DataFrame) -> DataFrame {
     let agg_exprs = vec![
         col("Number_hits").mean().alias("Hits per round (mean)"),
-        col("Number_crits").mean().alias("Critical hits per round (mean)"),
+        col("Number_crits")
+            .mean()
+            .alias("Critical hits per round (mean)"),
         col("Total_damage").mean().alias("Damage per round (mean)"),
     ];
 
