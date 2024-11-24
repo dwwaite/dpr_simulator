@@ -8,7 +8,6 @@ Messing around in `rust` to make a damage calculator for D&D 5e or Pathfinder 2e
 1. [Detailed description of commands](#detailed-description-of-commands)
 1. [Examples](#examples)
 1. [What to do with the output](#what-to-do-with-the-output)
-1. [To do list](#to-do-list)
 
 ---
 
@@ -26,16 +25,18 @@ A full overview of the parameters availabe in the tool can be seen by running wi
 Usage: dpr_simulator [OPTIONS] --output <OUTPUT FILE>
 
 Options:
-  -t, --to-hit <TO HIT>...
-          To-Hit modifier, one or one per attack to be made
   -a, --ac-targets <AC TARGETS>...
           Space-delimited AC values to test against (default 12, 14, 16, 18, 20) [default: 12 14 16 18 20]
+  -t, --to-hit <TO HIT>...
+          To-Hit modifier, one or one per attack to be made
   -w, --weapon-details <WEAPON DETAILS>...
           Details of each attack to be made in the form 1d8+5
   -o, --output <OUTPUT FILE>
           Path to save results (Apache parquet format)
   -n, --number-turns <NUMBER TURNS>
           Number of turns to simulate (default 1,000,000) [default: 1000000]
+      --n-threads <N THREADS>
+          Number of threads for running in multi-threaded mode (optional)
       --use-pf2e-criticals
           Use Pathfinder 2e rules for critical hits and damage calculation (default: False)
   -h, --help
@@ -147,9 +148,10 @@ In practice this *mostly* just means that it is easier to score critical hits ag
 
 Since I made this tool for myself, there are a few questions I was interested in answering with it:
 
-1. [How do different Pathfinder 2E Gunslinger builds compare?](./docs/example_2e_gunslinger.md)
-1. [How do different Pathfinder 2E melee builds compare](./docs/example_2e_melee.md)
-1. [Can dual-wielding be good for a D&D 5E Barbarian?](./docs/example_5e_barbarian.md)
+1. [Pathfinder 2E - Comparing Gunslinger builds against a rogue and fighter](./docs/example_2e_gunslinger.md)
+1. [Pathfinder 2E - Comparing different melee builds](./docs/example_2e_melee.md)
+1. [Pathfinder 2E - Comparing the remastered Mutagenist Alchemist to martials](./docs/example_2e_mutagenist.md)
+1. [D&D 5E - Dual-wield evaluation for a Barbarian](./docs/example_5e_barbarian.md)
 
 ---
 
@@ -192,15 +194,5 @@ df.groupby("Target_AC").agg({"Total_damage": ['min', 'median', 'max']})
 |20.0|0.0|7.0|40.0|
 
 >The minimum and maximum are not necessarily useful - the minimum will almost certainly reflect a round of all misses, and the maximum will most like be a round of critical hits rolling max damage on each die (very rare, but over a million rounds it'll happen sooner or later).
-
----
-
-## To do list
-
-Things to add in the future
-
-- [x] Resize the hit and weapon damage vectors, in case uneven inputs are provided.
-- [ ] Add bonus damage rules (e.g smites)
-- [ ] Add selective bonus damage rules (e.g. brutual critical, smites on criticals)
 
 ---
