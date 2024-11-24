@@ -184,7 +184,7 @@ dpr_simulator --use-pf2e-criticals --ac-targets 28 --to-hit "1d20+20" "1d20+20-5
 
 ## Summary
 
-|Build|ConsiderationsHits per round|Crits per round|Damage per round|
+|Build|Considerations|Hits per round|Crits per round|Damage per round|
 |:---|:---|:---:|:---:|:---:|
 |[Pistol twirl](#pistol-twirl-build)||0.75|0.25|14.37|
 |[Pistol twirl](#pistol-twirl-build)|Special ammo|0.75|0.25|19.33|
