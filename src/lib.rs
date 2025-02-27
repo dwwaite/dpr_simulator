@@ -1,27 +1,56 @@
-use dicecontext::DiceContext;
 use polars::prelude::*;
 use rayon::prelude::*;
 use simple_error::bail;
 use std::{cmp::Ordering, error::Error, fs::File};
 
-mod attackprofile;
-use attackprofile::AttackProfile;
+mod attack_profile;
+use attack_profile::AttackProfile;
 mod dice;
-mod dicecontext;
+mod roll_collection;
+use roll_collection::RollCollection;
+mod static_modifier;
+
+// region: Enums
 
 #[derive(Debug, PartialEq)]
 pub enum HitResult {
-    Miss,
-    Hit,
     CriticalHit,
+    Hit,
+    Miss,
 }
 
 #[derive(Debug, PartialEq)]
-pub enum Reroll {
+pub enum DiceBehaviour {
+    Standard,
+    Fatal,
+    OnCritical,
+    OnMiss,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum ModifierBehaviour {
+    OnHit,
+    OnCritical,
+    OnMiss,
+    CanCritical,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum RollBehaviour {
     Standard,
     Advantage,
     DoubleAdvantage,
     Disadvantage,
+    Fatal,
+    ExclusiveCrit,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum EvalBehaviour {
+    ExclusiveCrit,
+    Fatal,
+    OnHit,
+    OnMiss,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -30,52 +59,60 @@ pub enum Ruleset {
     PF2e,
 }
 
-#[derive(Debug, PartialEq)]
-pub enum DiceMode {
-    Standard,
-    Fatal,
-    OnCritical,
-    OnHit,
+// endregion:
+
+// region: Private functions
+
+/// Simulate a specified number of attack iterations and format the results as a DataFrame.
+///
+/// # Examples
+/// ```
+/// let number_of_turns = 1_000_000;
+/// let hit_die = vec![]
+/// let attack_profile = AttackProfile::new(16, vec![DiceContext::parse_user_input("1d20+2")], vec![DiceContext::parse_user_input("1d4+2")], Ruleset::DND5e);
+///
+/// let df = evaluate_attack_profile(attack_profile, number_of_turns);
+/// ```
+fn evaluate_attack_profile(mut attack_profile: AttackProfile, number_turns: i32) -> DataFrame {
+    let mut crit_counter: Vec<i32> = Vec::new();
+    let mut hit_counter: Vec<i32> = Vec::new();
+    let mut damage_counter: Vec<i32> = Vec::new();
+
+    for _ in 0..number_turns {
+        let (n_crits, n_hits, damage_rolled) = attack_profile.roll_turn();
+        crit_counter.push(n_crits);
+        hit_counter.push(n_hits);
+        damage_counter.push(damage_rolled);
+    }
+
+    // Bundle results into a DataFrame and return
+    results_to_dataframe(
+        attack_profile.target_ac,
+        crit_counter,
+        hit_counter,
+        damage_counter,
+    )
 }
 
-//region Private functions
-
-fn resize_vector(base_vector: &mut Vec<String>, new_value: String, iterations: usize) {
-    // Extend the length of the input by appending the specified value a given number of times.
-
-    let new_vector = vec![new_value; iterations];
-    base_vector.extend(new_vector);
-}
-
-fn produce_attackprofile(
-    target_ac: i32,
-    hit_details: &[String],
-    weapon_details: &[String],
-    ruleset: &Ruleset,
-) -> AttackProfile {
-    // Create a vector of AttackProfile structs corresponding to a vector of AC values.
-
-    let hit_context = hit_details
-        .iter()
-        .map(|s| DiceContext::parse_dice_string(s))
-        .collect();
-
-    let weapon_context = weapon_details
-        .iter()
-        .map(|s| DiceContext::parse_dice_string(s))
-        .collect();
-
-    AttackProfile::new(target_ac, hit_context, weapon_context, *ruleset)
-}
-
+/// Create a vector of AttackProfile structs corresponding to a vector of AC values.
+///
+/// Accepts a vector of target Armour Class values, and creates an attack profile for
+/// each individual value.
+///
+/// # Examples
+/// ```
+/// let ac_values = vec![10, 12, 14, 16, 18];
+/// let hit_details = vec![String::from("1d20+5"), "1d20+4"];
+/// let dmg_details = vec![String::from("1d8+3"), String::from("1d4")];
+///
+/// let attack_profile_vector = map_profiles_to_ac(ac_values, hit_details, dmg_details, Ruleset::DND5e)
+/// ```
 fn map_profiles_to_ac(
     ac_targets: Vec<i32>,
     hit_details: Vec<String>,
     weapon_details: Vec<String>,
     ruleset: Ruleset,
 ) -> Vec<AttackProfile> {
-    // Create a vector of AttackProfile structs corresponding to a vector of AC values.
-
     let profile_vector: Vec<AttackProfile> = ac_targets
         .into_iter()
         .map(|i| produce_attackprofile(i, &hit_details, &weapon_details, &ruleset))
@@ -84,15 +121,80 @@ fn map_profiles_to_ac(
     profile_vector
 }
 
+/// Bundles together the user input strings and a target AC/ruleset into an AttackProfile.
+///
+/// THIS IS TEMPORARY UNTIL THIS FUNCTION IS MOVED INTO THE ATTACK_PROFILE STRUCT.
+///
+/// # Examples
+/// ```
+/// let input_ac = 10;
+/// let hit_details = ["1d20+5"];
+/// let dmg_details = ["1d8+3"];
+///
+/// let attack_profile = produce_attackprofile(input_ac, &hit_details, &dmg_details, Ruleset::DND5e);
+/// ```
+fn produce_attackprofile(
+    target_ac: i32,
+    hit_details: &[String],
+    weapon_details: &[String],
+    ruleset: &Ruleset,
+) -> AttackProfile {
+    let hit_context = hit_details
+        .iter()
+        .map(|s| RollCollection::parse_user_input(s, *ruleset))
+        .collect();
+
+    let weapon_context = weapon_details
+        .iter()
+        .map(|s| RollCollection::parse_user_input(s, *ruleset))
+        .collect();
+
+    AttackProfile::new(target_ac, hit_context, weapon_context)
+}
+
+/// Extend the length of a vector by appending a new value the required number of times
+///
+/// # Examples
+/// ```
+/// let mut vector: Vec<String> = vec![String::from("A")];
+/// let new_value = String::from("B");
+///
+/// resize_vector(&mut vector, new_value, 3);
+/// ```
+fn resize_vector(base_vector: &mut Vec<String>, new_value: String, iterations: usize) {
+    // Extend the length of the input by appending the specified value a given number of times.
+
+    let new_vector = vec![new_value; iterations];
+    base_vector.extend(new_vector);
+}
+
+/// Collect the results of an attack profile simulation into a polars DataFrame
+///
+/// Records the target AC as a single integer, and vectors of the tallies for critical
+/// hits, regular hits, and damage per turn for all turns simulated in the iteration.
+/// Formats the results into a table in the format:
+///
+/// |Iteration|Target_AC|Number_hits|Number_crits|Total_damage|
+/// |:---:|:---:|:---:|:---:|:---:|
+/// |1|...|...|...|...|
+/// |...|...|...|...|...|
+/// |n|...|...|...|...|
+///
+/// # Examples
+/// ```
+/// let input_ac = 10;
+/// let crit_counts = vec![0, 0, 1, 0];
+/// let hit_counts = vec![0, 1, 1, 1];
+/// let damage_results = vec![0, 1, 4, 1];
+///
+/// let df = results_to_dataframe(input_ac, crit_counts, hit_counts, damage_results);
+/// ```
 fn results_to_dataframe(
     ac_value: i32,
     crit_counter: Vec<i32>,
     hit_counter: Vec<i32>,
     damage_counter: Vec<i32>,
 ) -> DataFrame {
-    // Collect the results of an attack profile simulation into a polars DataFrame
-
-    // Compute the number of iterations, and replicate the AC over the size of the input vectors
     let max_len: i32 = (crit_counter.len() as i32) + 1;
     let iteration_counter: Vec<i32> = (1..max_len).collect();
     let ac_counter: Vec<i32> = vec![ac_value; crit_counter.len()];
@@ -108,39 +210,27 @@ fn results_to_dataframe(
     .unwrap()
 }
 
-fn evaluate_attack_profile(attack_profile: AttackProfile, number_turns: i32) -> DataFrame {
-    // Simulate a specified number of attack iterations and format the results as a DataFrame.
+// endregion:
 
-    let mut crit_counter: Vec<i32> = Vec::new();
-    let mut hit_counter: Vec<i32> = Vec::new();
-    let mut damage_counter: Vec<i32> = Vec::new();
+// region: Public functions
 
-    let mut roll_element = rand::thread_rng();
-
-    for _ in 0..number_turns {
-        let (n_crits, n_hits, damage_rolled) = attack_profile.roll_turn(&mut roll_element);
-        crit_counter.push(n_crits);
-        hit_counter.push(n_hits);
-        damage_counter.push(damage_rolled);
-    }
-
-    // Bundle results into a DataFrame and return
-    results_to_dataframe(
-        attack_profile.target_ac,
-        crit_counter,
-        hit_counter,
-        damage_counter,
-    )
-}
-
-//endregion
-
-//region Public functions
-
+/// Compare the lengths of two input vectors and extend the shorter instance
+///
+/// Identifies the shorter vector then pads the end with the terminal value of the
+/// longer vector until both are of equal length. This acts as a shortcut for D&D-
+/// style rules where there may be a single hit roll value for multiple attacks,
+/// or for PF2e where successive attacks rolled with MAP use the same damage roll
+/// on each attack.
+///
+/// # Examples
+/// ```
+/// let mut long_vector = vec![String::from("a"), String::from("b"), String::from("c")];
+/// let mut short_vector = vec![String::from("a")];
+///
+/// equalise_input_vectors(&mut long_vector, &mut short_vector);
+/// assert_eq!(vec!["a", "c", "c"], short_vector);
+/// ```
 pub fn equalise_input_vectors(first_vector: &mut Vec<String>, second_vector: &mut Vec<String>) {
-    // Compare the lengths of two input vectors and replicate the last value of the shorter so that
-    //  the lengths are equal.
-
     match first_vector.len().cmp(&second_vector.len()) {
         Ordering::Greater => {
             let length_diff = first_vector.len() - second_vector.len();
@@ -156,6 +246,26 @@ pub fn equalise_input_vectors(first_vector: &mut Vec<String>, second_vector: &mu
     }
 }
 
+/// Partition the inputs over the range of AC values and simulate the attack turns.
+///
+/// Instantiates the attack simulation conditions into a vector mapping each specified
+/// Armour Class value with the roll information. Runs the simulation in either single-
+/// or multi-threaded mode, defaulting to a simple map/iter structure when no thread
+/// information is provided.
+///
+/// # Examples
+/// ```
+/// let ac_input = vec![10, 12, 14, 16, 18];
+/// let hit_input = vec![String::from("1d20+5"), String::from("1d20")];
+/// let dmg_input = vec![String::from("1d8+5"), String::from("1d8+5")];
+/// let number_of_turns = 1_000_000;
+///
+/// // Single-threaded approach
+/// let df = process_simulation(asd, qwe, asd, Ruleset::PF2e, number_of_turns, None);
+///
+/// // Multi-threaded approach
+/// let df = process_simulation(asd, qwe, asd, Ruleset::PF2e, number_of_turns, Some(10));
+/// ```
 pub fn process_simulation(
     ac_targets: Vec<i32>,
     hit_details: Vec<String>,
@@ -164,8 +274,6 @@ pub fn process_simulation(
     number_turns: i32,
     n_threads: Option<usize>,
 ) -> DataFrame {
-    // Partition the inputs over the range of AC values and simulate the attack turns.
-
     let profile_vector: Vec<AttackProfile> =
         map_profiles_to_ac(ac_targets, hit_details, weapon_details, ruleset);
 
@@ -189,9 +297,10 @@ pub fn process_simulation(
             .collect(),
     };
 
-    // Documentation on the circumstances that cause the polars concat() function is lacking.
-    // For now just unwrap and return until I get a sighting of an error, at which point a
-    //  separate function might be required.
+    /* Documentation on the circumstances that cause the polars concat() function is lacking.
+       For now just unwrap and return until I get a sighting of an error, at which point a
+       separate function might be required.
+    */
     let concat_args = UnionArgs {
         parallel: true,
         rechunk: true,
@@ -205,32 +314,23 @@ pub fn process_simulation(
         .unwrap()
 }
 
-pub fn write_to_parquet(
-    output_path: &str,
-    file_content: &mut DataFrame,
-) -> Result<(), Box<dyn Error>> {
-    // Write the DataFrame content into the compressed parquet format.
-
-    let error_msg = format!("Unable to write to output file path '{}'!", output_path);
-
-    // Create the file path, and premature return if it fails
-    let create_result = File::create(output_path);
-    if create_result.is_err() {
-        bail!(error_msg);
-    }
-
-    // Add a sort to make sure the data is sorted by ascending AC/Iteration
-
-    // If we get this far, no error was encountered.
-    let target_file = create_result.unwrap();
-    match ParquetWriter::new(target_file).finish(file_content) {
-        Ok(_) => (),
-        _ => bail!(error_msg),
-    };
-
-    Ok(())
-}
-
+/// Summarise the raw simulation information to the average per-AC results
+///
+/// Takes a table representing all simulation data produced during the run
+/// and reports the mean number of hits, critical hits, and damage for each
+/// Armour Class value evaluated in the simulation run.
+///
+/// # Examples
+/// ```
+/// let input_df = df!(
+///     "Target_AC" => &[10, 10, 10, 12, 12, 12],
+///     "Number_hits" => &[1, 1, 1, 1, 0, 0],
+///     "Number_crits" => &[1, 0, 0, 0, 0, 0],
+///     "Total_damage" => &[6, 3, 3, 2, 0, 0],
+/// ).unwrap()
+///
+/// let df = summarise_results(input_df);
+/// ```
 pub fn summarise_results(results_df: DataFrame) -> DataFrame {
     let agg_exprs = vec![
         col("Number_hits").mean().alias("Hits per round (mean)"),
@@ -250,14 +350,40 @@ pub fn summarise_results(results_df: DataFrame) -> DataFrame {
         .unwrap()
 }
 
-//endregion
+/// Write a DataFrame into the compressed parquet format.
+///
+/// # Examples
+/// ```
+/// let mut df = df!("Temp" => &[1, 2, 3]).unwrap();
+///
+/// write_to_parquet("example.parquet", &mut df)?;
+/// ```
+pub fn write_to_parquet(
+    output_path: &str,
+    file_content: &mut DataFrame,
+) -> Result<(), Box<dyn Error>> {
+    let error_msg = format!("Unable to write to output file path '{}'!", output_path);
 
-//region Unit tests
+    // Create the file path, and premature return if it fails
+    let create_result = File::create(output_path);
+    if create_result.is_err() {
+        bail!(error_msg);
+    }
+
+    let target_file = create_result.unwrap();
+    match ParquetWriter::new(target_file).finish(file_content) {
+        Ok(_) => (),
+        _ => bail!(error_msg),
+    };
+
+    Ok(())
+}
+
+// endregion:
 
 #[cfg(test)]
 mod tests {
-
-    use crate::dice::DiceCollection;
+    use crate::dice::DiceBuilder;
 
     use super::*;
     use std::fs;
@@ -283,6 +409,113 @@ mod tests {
         }
     }
 
+    // region: evaluate_attack_profile() tests
+
+    #[test]
+    fn test_evaluate_attack_profile() {
+        // Using very carefully controlled dice to have a predictable output so that the output dataframe
+        // can be compared to an expected value.
+        let hit_die = DiceBuilder::new().set_roll_min(2).set_roll_max(3).build();
+        let hit_context = RollCollection::new(vec![hit_die], vec![], Ruleset::DND5e);
+        let dmg_context = RollCollection::parse_user_input("1d1+1", Ruleset::DND5e);
+
+        let attackprofile = AttackProfile::new(1, vec![hit_context], vec![dmg_context]);
+
+        let exp_df = df![
+            "Iteration" => vec![1, 2, 3, 4, 5],
+            "Target_AC" => vec![1; 5],
+            "Number_hits" => vec![1; 5],
+            "Number_crits" => vec![0; 5],
+            "Total_damage" => vec![2; 5],
+        ]
+        .unwrap();
+
+        let obs_df = evaluate_attack_profile(attackprofile, 5);
+        dataframes_are_equal(exp_df, obs_df);
+    }
+
+    // endregion:
+
+    // region: map_profiles_to_ac() tests
+
+    #[test]
+    fn test_map_profiles_to_ac() {
+        // Test the ability to produce multiple AttackProfiles from a single set of input
+        //  strings to produce the DiceContext structs.
+
+        let exp_aps = vec![
+            AttackProfile::new(
+                10,
+                vec![RollCollection::parse_user_input("1d4+1", Ruleset::DND5e)],
+                vec![RollCollection::parse_user_input("1d12+4", Ruleset::DND5e)],
+            ),
+            AttackProfile::new(
+                15,
+                vec![RollCollection::parse_user_input("1d4+1", Ruleset::DND5e)],
+                vec![RollCollection::parse_user_input("1d12+4", Ruleset::DND5e)],
+            ),
+        ];
+
+        let obs_aps = map_profiles_to_ac(
+            vec![10, 15],
+            vec!["1d4+1".to_string()],
+            vec!["1d12+4".to_string()],
+            Ruleset::DND5e,
+        );
+
+        assert_eq!(exp_aps, obs_aps);
+    }
+
+    // endregion:
+
+    // region: produce_attackprofile() tests
+
+    #[test]
+    fn test_produce_attackprofile_single() {
+        let exp_ap = AttackProfile::new(
+            10,
+            vec![RollCollection::parse_user_input("1d4+1", Ruleset::DND5e)],
+            vec![RollCollection::parse_user_input("1d10+1", Ruleset::DND5e)],
+        );
+
+        let obs_ap = produce_attackprofile(
+            10,
+            &vec!["1d4+1".to_string()],
+            &vec!["1d10+1".to_string()],
+            &Ruleset::DND5e,
+        );
+
+        assert_eq!(exp_ap, obs_ap);
+    }
+
+    #[test]
+    fn test_produce_attackprofile_multiple() {
+        let exp_ap = AttackProfile::new(
+            10,
+            vec![
+                RollCollection::parse_user_input("1d4+1", Ruleset::DND5e),
+                RollCollection::parse_user_input("1d6+2", Ruleset::DND5e),
+            ],
+            vec![
+                RollCollection::parse_user_input("1d10+3", Ruleset::DND5e),
+                RollCollection::parse_user_input("1d12+4", Ruleset::DND5e),
+            ],
+        );
+
+        let obs_ap = produce_attackprofile(
+            10,
+            &vec!["1d4+1".to_string(), "1d6+2".to_string()],
+            &vec!["1d10+3".to_string(), "1d12+4".to_string()],
+            &Ruleset::DND5e,
+        );
+
+        assert_eq!(exp_ap, obs_ap);
+    }
+
+    // endregion:
+
+    // region: resize_vector() tests
+
     #[test]
     fn test_resize_vector() {
         // Test the function when a resize occurs.
@@ -305,83 +538,9 @@ mod tests {
         assert_eq!(exp_vector, input_vector);
     }
 
-    #[test]
-    fn test_produce_attackprofile_single() {
-        // Test the function to produce for a single hit/weapon input.
+    // endregion:
 
-        let exp_ap = AttackProfile::new(
-            10,
-            vec![DiceContext::parse_dice_string("1d4+1")],
-            vec![DiceContext::parse_dice_string("1d10+1")],
-            Ruleset::DND5e,
-        );
-
-        let obs_ap = produce_attackprofile(
-            10,
-            &vec!["1d4+1".to_string()],
-            &vec!["1d10+1".to_string()],
-            &Ruleset::DND5e,
-        );
-
-        assert_eq!(exp_ap, obs_ap);
-    }
-
-    #[test]
-    fn test_produce_attackprofile_multiple() {
-        // Test the function to produce for multiple hit/weapon inputs.
-
-        let exp_ap = AttackProfile::new(
-            10,
-            vec![
-                DiceContext::parse_dice_string("1d4+1"),
-                DiceContext::parse_dice_string("1d6+2"),
-            ],
-            vec![
-                DiceContext::parse_dice_string("1d10+3"),
-                DiceContext::parse_dice_string("1d12+4"),
-            ],
-            Ruleset::DND5e,
-        );
-
-        let obs_ap = produce_attackprofile(
-            10,
-            &vec!["1d4+1".to_string(), "1d6+2".to_string()],
-            &vec!["1d10+3".to_string(), "1d12+4".to_string()],
-            &Ruleset::DND5e,
-        );
-
-        assert_eq!(exp_ap, obs_ap);
-    }
-
-    #[test]
-    fn test_map_profiles_to_ac() {
-        // Test the ability to produce multiple AttackProfiles from a single set of input
-        //  strings to produce the DiceContext structs.
-
-        let exp_aps = vec![
-            AttackProfile::new(
-                10,
-                vec![DiceContext::parse_dice_string("1d4+1")],
-                vec![DiceContext::parse_dice_string("1d12+4")],
-                Ruleset::DND5e,
-            ),
-            AttackProfile::new(
-                15,
-                vec![DiceContext::parse_dice_string("1d4+1")],
-                vec![DiceContext::parse_dice_string("1d12+4")],
-                Ruleset::DND5e,
-            ),
-        ];
-
-        let obs_aps = map_profiles_to_ac(
-            vec![10, 15],
-            vec!["1d4+1".to_string()],
-            vec!["1d12+4".to_string()],
-            Ruleset::DND5e,
-        );
-
-        assert_eq!(exp_aps, obs_aps);
-    }
+    // region: results_to_dataframe() tests
 
     #[test]
     fn test_results_to_dataframe() {
@@ -405,33 +564,9 @@ mod tests {
         dataframes_are_equal(exp_df, obs_df);
     }
 
-    #[test]
-    fn test_evaluate_attack_profile() {
-        // Test the behaviour of the evaluate_attack_profile() function.
-        // Using very carefully controlled dice to have a predictable output.
+    // endregion:
 
-        let mut test_die = DiceCollection::new(1, 3, Reroll::Standard);
-        test_die.increase_minimum(2);
-
-        let attackprofile = AttackProfile::new(
-            1,
-            vec![DiceContext::new(vec![test_die], 5)],
-            vec![DiceContext::parse_dice_string("1d1+1")],
-            Ruleset::DND5e,
-        );
-
-        let exp_df = df![
-            "Iteration" => vec![1, 2, 3, 4, 5],
-            "Target_AC" => vec![1; 5],
-            "Number_hits" => vec![1; 5],
-            "Number_crits" => vec![0; 5],
-            "Total_damage" => vec![2; 5],
-        ]
-        .unwrap();
-
-        let obs_df = evaluate_attack_profile(attackprofile, 5);
-        dataframes_are_equal(exp_df, obs_df);
-    }
+    // region: equalise_input_vectors() tests
 
     #[test]
     fn test_equalise_input_vectors_increase_first() {
@@ -481,12 +616,13 @@ mod tests {
         assert_eq!(exp_second, second_vector);
     }
 
+    // endregion:
+
+    // region: process_simulation() tests
+
     #[test]
     fn test_process_simulation() {
-        /* Test the complete run of the turnsimulation.process_simulation() function.
-           Only testing over the success case, as internal behaviours are tested in relevant
-            unit tests.
-        */
+        // Only testing over the success case, as internal behaviours are tested in relevant unit tests.
 
         let exp_df = df![
             "Iteration" => vec![1, 2, 3, 4, 5, 1, 2, 3, 4, 5],
@@ -535,6 +671,38 @@ mod tests {
         dataframes_are_equal(exp_df, obs_df);
     }
 
+    // endregion:
+
+    // region: summarise_result() tests
+
+    #[test]
+    fn test_summarise_results() {
+        // Test the behaviour of the summarise_results() function.
+
+        let input_df = df![
+            "Target_AC" => vec![0, 0, 0, 1, 1, 1, 2, 2, 2],
+            "Number_hits" => vec![0, 1, 2, 4, 6, 8, 1, 2, 3],
+            "Number_crits" => vec![0, 1, 2, 4, 6, 8, 1, 2, 3],
+            "Total_damage" => vec![0, 1, 2, 4, 6, 8, 1, 2, 3],
+        ]
+        .unwrap();
+
+        let exp_df = df![
+            "Target AC" => vec![0, 1, 2],
+            "Hits per round (mean)" => vec![1, 6, 2],
+            "Critical hits per round (mean)" => vec![1, 6, 2],
+            "Damage per round (mean)" => vec![1, 6, 2],
+        ]
+        .unwrap();
+
+        let obs_df = summarise_results(input_df);
+        dataframes_are_equal(exp_df, obs_df);
+    }
+
+    // endregion:
+
+    // region: write_to_parquet() tests
+
     #[test]
     fn test_write_to_parquet() {
         // Test the write_to_parquet() function for the success case.
@@ -570,29 +738,5 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_summarise_results() {
-        // Test the behaviour of the summarise_results() function.
-
-        let input_df = df![
-            "Target_AC" => vec![0, 0, 0, 1, 1, 1, 2, 2, 2],
-            "Number_hits" => vec![0, 1, 2, 4, 6, 8, 1, 2, 3],
-            "Number_crits" => vec![0, 1, 2, 4, 6, 8, 1, 2, 3],
-            "Total_damage" => vec![0, 1, 2, 4, 6, 8, 1, 2, 3],
-        ]
-        .unwrap();
-
-        let exp_df = df![
-            "Target AC" => vec![0, 1, 2],
-            "Hits per round (mean)" => vec![1, 6, 2],
-            "Critical hits per round (mean)" => vec![1, 6, 2],
-            "Damage per round (mean)" => vec![1, 6, 2],
-        ]
-        .unwrap();
-
-        let obs_df = summarise_results(input_df);
-        dataframes_are_equal(exp_df, obs_df);
-    }
+    // endregion:
 }
-
-//endregion
