@@ -13,18 +13,6 @@ A run through of different weapon set ups for a [Gunslinger](https://2e.aonprd.c
   * Sword and Board build, no particular feats.
   * An approximation of the DPR a martial could pull at the same level.
 
-## Contents
-
-1. [Setting the stage](#setting-the-stage)
-1. [Pistol Twirl build](#pistol-twirl-build)
-1. [Paired Shots build](#paired-shots-build)
-1. [Drifter build](#drifter-build)
-1. [Summary](#summary)
-
-Running for a 9th level character, with level-appropriate runes.
-
-Based on the [previous check](./example_2e_mutagenist.md) the median AC at this level is 28.
-
 ---
 
 ## Pistol Twirl build

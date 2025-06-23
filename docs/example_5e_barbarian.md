@@ -11,13 +11,6 @@ Running for a 5th level character, variant human lineage so;
 1. Proficiency (+3)
 1. Reckless attack on all rolls
 
-## Contents
-
-1. [1H Barbarian](#1h-barbarian)
-1. [2H Barbarian](#2h-barbarian)
-1. [Dual-wielding Barbarian](#dual-wielding-barbarian)
-1. [Summary](#summary)
-
 ---
 
 ## 1H Barbarian

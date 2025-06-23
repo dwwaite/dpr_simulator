@@ -2,15 +2,6 @@
 
 A few examples of the tool in action for some Pathfinder martial comparisons. All are built at level 5 and assume two attack actions with appropriate MAP.
 
-## Contents
-
-1. [Fighter - 1 handed](#fighter---1-handed)
-1. [Fighter - Dual wielding](#fighter---dual-wielding)
-1. [Fighter - 2 handed](#fighter---2-handed)
-1. [Barbarian - Dragon instinct, 2-handed](#barbarian---dragon-instinct-2-handed)
-1. [Barbarian - Other instincts, 2-handed](#barbarian---other-instincts-2-handed)
-1. [Summary](#summary)
-
 ---
 
 ## Fighter - 1 handed
