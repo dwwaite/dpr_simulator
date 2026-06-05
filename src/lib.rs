@@ -1,57 +1,16 @@
-use polars::prelude::*;
-use rayon::prelude::*;
+//use polars::prelude::*;
+//use rayon::prelude::*;
 use simple_error::bail;
 use std::{cmp::Ordering, error::Error, fs::File};
 
-mod attack_profile;
-use attack_profile::AttackProfile;
+//mod attack_profile;
+//use attack_profile::AttackProfile;
 mod dice;
-mod roll_collection;
-use roll_collection::RollCollection;
+use dice::Dice;
+mod dice_collection;
+use dice_collection::DiceCollection;
 mod static_modifier;
-
-// region: Enums
-
-#[derive(Debug, PartialEq)]
-pub enum HitResult {
-    CriticalHit,
-    Hit,
-    Miss,
-}
-
-#[derive(Debug, PartialEq)]
-pub enum DiceBehaviour {
-    Standard,
-    Fatal,
-    OnCritical,
-    OnMiss,
-}
-
-#[derive(Debug, PartialEq)]
-pub enum ModifierBehaviour {
-    OnHit,
-    OnCritical,
-    OnMiss,
-    CanCritical,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum RollBehaviour {
-    Standard,
-    Advantage,
-    DoubleAdvantage,
-    Disadvantage,
-    Fatal,
-    ExclusiveCrit,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum EvalBehaviour {
-    ExclusiveCrit,
-    Fatal,
-    OnHit,
-    OnMiss,
-}
+use static_modifier::{StaticModifier, ModifierBehaviour};
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Ruleset {
@@ -59,9 +18,9 @@ pub enum Ruleset {
     PF2e,
 }
 
-// endregion:
-
 // region: Private functions
+
+/*
 
 /// Simulate a specified number of attack iterations and format the results as a DataFrame.
 ///
@@ -210,9 +169,17 @@ fn results_to_dataframe(
     .unwrap()
 }
 
+*/
+
 // endregion:
 
 // region: Public functions
+
+pub fn exec() {
+    let _my_die = Dice::new(4, None);
+    let _my_mod = StaticModifier::new(4, ModifierBehaviour::OnHit);
+}
+/*
 
 /// Compare the lengths of two input vectors and extend the shorter instance
 ///
@@ -379,7 +346,11 @@ pub fn write_to_parquet(
     Ok(())
 }
 
+*/
+
 // endregion:
+
+/*
 
 #[cfg(test)]
 mod tests {
@@ -740,3 +711,5 @@ mod tests {
 
     // endregion:
 }
+
+*/
