@@ -4,11 +4,10 @@ use std::cmp::{max, min};
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum RollBehaviour {
     Standard,
-    KeepHighFromX { extra_rolls: i32, },
-    KeepLowFromX { extra_rolls: i32, },
+    KeepHighFromX { extra_rolls: i32 },
+    KeepLowFromX { extra_rolls: i32 },
 }
 
-/// A representation of a collection of dice
 #[derive(Debug)]
 pub struct Dice {
     pub sides: i32,
@@ -37,17 +36,14 @@ impl Dice {
     ///
     /// let my_die = Dice::new(4, Some(5));
     /// ```
-    pub fn new(
-        sides: i32,
-        rng_seed: Option<u64>,
-    ) -> Dice {
+    pub fn new(sides: i32, rng_seed: Option<u64>) -> Dice {
         Dice {
             sides: sides,
             roll_behaviour: RollBehaviour::Standard,
             rng: match rng_seed {
                 Some(u) => StdRng::seed_from_u64(u),
                 None => StdRng::from_os_rng(),
-            }
+            },
         }
     }
 
@@ -74,24 +70,21 @@ impl Dice {
                     .map(|_| self.rng.random_range(1..=n_sides))
                     .max()
                     .unwrap()
-            },
+            }
             RollBehaviour::KeepLowFromX { extra_rolls } => {
                 let total_rolls = extra_rolls + 1;
                 (0..total_rolls)
                     .map(|_| self.rng.random_range(1..=n_sides))
                     .min()
                     .unwrap()
-            },
-            
+            }
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::env::VarError::NotUnicode;
-
-use super::*;
+    use super::*;
 
     fn unpack_roll_vector(roll_capture: &Vec<i32>) -> (i32, i32) {
         let obs_min: i32 = *roll_capture.iter().min().unwrap();
@@ -128,41 +121,43 @@ use super::*;
 
     #[test]
     fn test_with_roll_behaviour() {
-        let mut my_die = Dice::new(4, None)
-            .with_roll_behaviour(RollBehaviour::KeepHighFromX { extra_rolls: 2 });
+        let mut my_die =
+            Dice::new(4, None).with_roll_behaviour(RollBehaviour::KeepHighFromX { extra_rolls: 2 });
 
-        assert_eq!(RollBehaviour::KeepHighFromX { extra_rolls: 2 }, my_die.roll_behaviour);
+        assert_eq!(
+            RollBehaviour::KeepHighFromX { extra_rolls: 2 },
+            my_die.roll_behaviour,
+        );
     }
 
     #[test]
     fn test_dice_eq() {
-        let dice_1 = Dice::new(4, None)
-            .with_roll_behaviour(RollBehaviour::KeepHighFromX { extra_rolls: 2 });
+        let dice_1 =
+            Dice::new(4, None).with_roll_behaviour(RollBehaviour::KeepHighFromX { extra_rolls: 2 });
 
-        let dice_2 = Dice::new(4, None)
-            .with_roll_behaviour(RollBehaviour::KeepHighFromX { extra_rolls: 2 });
+        let dice_2 =
+            Dice::new(4, None).with_roll_behaviour(RollBehaviour::KeepHighFromX { extra_rolls: 2 });
 
         assert_eq!(dice_1, dice_2);
     }
 
     #[test]
     fn test_dice_ne_sides() {
-        let dice_1 = Dice::new(5, None)
-            .with_roll_behaviour(RollBehaviour::KeepHighFromX { extra_rolls: 2 });
+        let dice_1 =
+            Dice::new(5, None).with_roll_behaviour(RollBehaviour::KeepHighFromX { extra_rolls: 2 });
 
-        let dice_2 = Dice::new(4, None)
-            .with_roll_behaviour(RollBehaviour::KeepHighFromX { extra_rolls: 2 });
+        let dice_2 =
+            Dice::new(4, None).with_roll_behaviour(RollBehaviour::KeepHighFromX { extra_rolls: 2 });
 
         assert_ne!(dice_1, dice_2);
     }
 
     #[test]
     fn test_dice_ne_behaviour() {
-        let dice_1 = Dice::new(4, None)
-            .with_roll_behaviour(RollBehaviour::KeepHighFromX { extra_rolls: 2 });
+        let dice_1 =
+            Dice::new(4, None).with_roll_behaviour(RollBehaviour::KeepHighFromX { extra_rolls: 2 });
 
-        let dice_2 = Dice::new(4, None)
-            .with_roll_behaviour(RollBehaviour::Standard);
+        let dice_2 = Dice::new(4, None).with_roll_behaviour(RollBehaviour::Standard);
 
         assert_ne!(dice_1, dice_2);
     }
@@ -203,10 +198,10 @@ use super::*;
         assert_eq!((1, 10), obs_results);
     }
 
-        #[test]
+    #[test]
     fn test_roll_keep_high() {
-        // Test by confirming that the average roll with KeepHighFromX behaviour is greater than that
-        // of standard.  
+        // Test by confirming that the average roll with KeepHighFromX behaviour is greater than
+        // that of standard.
         let mut std_dice = Dice::new(100, None);
         let mut kh_die = Dice::new(100, None)
             .with_roll_behaviour(RollBehaviour::KeepHighFromX { extra_rolls: 10 });
@@ -228,8 +223,8 @@ use super::*;
 
     #[test]
     fn test_roll_keep_low() {
-        // Test by confirming that the average roll with KeepHighFromX behaviour is greater than that
-        // of standard.  
+        // Test by confirming that the average roll with KeepHighFromX behaviour is greater than
+        // that of standard.
         let mut std_dice = Dice::new(100, None);
         let mut kl_die = Dice::new(100, None)
             .with_roll_behaviour(RollBehaviour::KeepLowFromX { extra_rolls: 10 });
@@ -250,5 +245,4 @@ use super::*;
     }
 
     // endregion:
-
 }
