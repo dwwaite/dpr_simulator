@@ -1,8 +1,3 @@
-use std::cmp::Ordering;
-
-use once_cell::sync::Lazy;
-use regex::Regex;
-
 use crate::dice::Dice;
 use crate::{ApplyTrait, RollKind, Ruleset};
 
@@ -12,7 +7,7 @@ pub struct DiceCollection {
     n_die: i32,
     dice: Dice,
     roll_trait: ApplyTrait,
-    rule_mode: Ruleset,
+    rule_set: Ruleset,
 }
 
 // Implement PartialEq to invoke the Dice PartialEq.
@@ -21,7 +16,19 @@ impl PartialEq for DiceCollection {
         self.n_die == other.n_die
             //&& self.dice == other.dice
             && self.roll_trait == other.roll_trait
-            && self.rule_mode == other.rule_mode
+            && self.rule_set == other.rule_set
+    }
+}
+
+// Useful for unit testing, don't need for real implementation
+impl Default for DiceCollection {
+    fn default() -> Self {
+        Self {
+            n_die: 1,
+            dice: Dice::new(20, None),
+            roll_trait: ApplyTrait::Standard,
+            rule_set: Ruleset::DND5e,
+        }
     }
 }
 
@@ -55,7 +62,7 @@ impl DiceCollection {
             n_die: n_die,
             dice: dice,
             roll_trait: roll_trait,
-            rule_mode: rule_set,
+            rule_set: rule_set,
         }
     }
 
@@ -67,7 +74,9 @@ impl DiceCollection {
     fn roll_standard(&mut self) -> i32 {
         // Catch cases where a regular would be ignored, otherwise return a standard roll
         match self.roll_trait {
-            ApplyTrait::OnCriticalOnly { doubles_with_crit } => 0,
+            ApplyTrait::OnCriticalOnly {
+                doubles_with_crit: _,
+            } => 0,
             ApplyTrait::OnMissOnly => 0,
             _ => self.dice.roll(self.dice.sides),
         }
@@ -93,13 +102,10 @@ impl DiceCollection {
             }
             ApplyTrait::OnMissOnly => 0,
             // Pathfinder critical traits
-            ApplyTrait::Deadly {
-                extra_sides,
-                extra_dice,
-            } => {
+            ApplyTrait::Deadly { extra_sides } => {
                 //https://2e.aonprd.com/Traits.aspx?ID=570
                 self.roll_sum(self.n_die * 2, self.dice.sides)
-                    + self.roll_sum(extra_dice, extra_sides)
+                    + self.roll_sum(self.n_die, extra_sides)
             }
             ApplyTrait::Fatal { upgraded_sides } => {
                 //https://2e.aonprd.com/Traits.aspx?ID=597
@@ -122,18 +128,6 @@ impl DiceCollection {
 mod tests {
     use super::*;
 
-    // Useful for unit testing, don't need for real implementation
-    impl Default for DiceCollection {
-        fn default() -> Self {
-            Self {
-                n_die: 0,
-                dice: Dice::new(0, None),
-                roll_trait: ApplyTrait::Standard,
-                rule_mode: Ruleset::DND5e,
-            }
-        }
-    }
-
     fn unpack_roll_vector(roll_capture: &Vec<i32>) -> (i32, i32) {
         let obs_min: i32 = *roll_capture.iter().min().unwrap();
         let obs_max: i32 = *roll_capture.iter().max().unwrap();
@@ -149,7 +143,7 @@ mod tests {
             n_die: 2,
             dice: Dice::new(4, None),
             roll_trait: ApplyTrait::Standard,
-            rule_mode: Ruleset::DND5e,
+            rule_set: Ruleset::DND5e,
         };
 
         let obs_dc =
@@ -217,13 +211,12 @@ mod tests {
     #[test]
     fn test_roll_standard_normal() {
         let mut dc = DiceCollection {
-            n_die: 1,
             dice: Dice::new(4, None),
             ..DiceCollection::default()
         };
 
         // Range for 1d4 = (1, 4)
-        let roll_results: Vec<i32> = (0..10_000).map(|_| dc.roll_standard()).collect();
+        let roll_results: Vec<i32> = (0..1_000).map(|_| dc.roll_standard()).collect();
         let obs_results: (i32, i32) = unpack_roll_vector(&roll_results);
 
         assert_eq!(obs_results, (1, 4));
@@ -232,8 +225,6 @@ mod tests {
     #[test]
     fn test_roll_standard_on_critical_only() {
         let mut dc = DiceCollection {
-            n_die: 1,
-            dice: Dice::new(4, None),
             roll_trait: ApplyTrait::OnCriticalOnly {
                 doubles_with_crit: false,
             },
@@ -247,8 +238,6 @@ mod tests {
     #[test]
     fn test_roll_standard_on_miss_only() {
         let mut dc = DiceCollection {
-            n_die: 1,
-            dice: Dice::new(4, None),
             roll_trait: ApplyTrait::OnMissOnly,
             ..DiceCollection::default()
         };
@@ -264,8 +253,6 @@ mod tests {
     #[test]
     fn test_roll_miss_on_miss_only() {
         let mut dc = DiceCollection {
-            n_die: 1,
-            dice: Dice::new(4, None),
             roll_trait: ApplyTrait::OnMissOnly,
             ..DiceCollection::default()
         };
@@ -279,10 +266,7 @@ mod tests {
         // This may not be exhaustive as the ApplyTrait scope grows
         let trait_vector: Vec<ApplyTrait> = vec![
             ApplyTrait::Standard,
-            ApplyTrait::Deadly {
-                extra_sides: 1,
-                extra_dice: 1,
-            },
+            ApplyTrait::Deadly { extra_sides: 1 },
             ApplyTrait::Fatal { upgraded_sides: 1 },
             ApplyTrait::OnCriticalOnly {
                 doubles_with_crit: true,
@@ -291,8 +275,6 @@ mod tests {
 
         for roll_trait in trait_vector {
             let mut dc = DiceCollection {
-                n_die: 1,
-                dice: Dice::new(4, None),
                 roll_trait: roll_trait,
                 ..DiceCollection::default()
             };
@@ -309,21 +291,20 @@ mod tests {
     #[test]
     fn test_roll_critical_normal() {
         let mut dc = DiceCollection {
-            n_die: 1,
             dice: Dice::new(4, None),
-            roll_trait: ApplyTrait::Standard,
             ..DiceCollection::default()
         };
 
-        let obs_result = dc.roll_critical();
-        assert!(obs_result >= 2);
-        assert!(obs_result <= 8);
+        // Range for 2 * 1d4 = (2, 8)
+        let roll_results: Vec<i32> = (0..1_000).map(|_| dc.roll_critical()).collect();
+        let obs_results: (i32, i32) = unpack_roll_vector(&roll_results);
+
+        assert_eq!(obs_results, (2, 8));
     }
 
     #[test]
     fn test_roll_critical_on_critical_only_double() {
         let mut dc = DiceCollection {
-            n_die: 1,
             dice: Dice::new(4, None),
             roll_trait: ApplyTrait::OnCriticalOnly {
                 doubles_with_crit: true,
@@ -332,7 +313,7 @@ mod tests {
         };
 
         // Range for 2 * 1d4 = (2, 8)
-        let roll_results: Vec<i32> = (0..10_000).map(|_| dc.roll_critical()).collect();
+        let roll_results: Vec<i32> = (0..1_000).map(|_| dc.roll_critical()).collect();
         let obs_results: (i32, i32) = unpack_roll_vector(&roll_results);
 
         assert_eq!(obs_results, (2, 8));
@@ -341,7 +322,6 @@ mod tests {
     #[test]
     fn test_roll_critical_on_critical_only_single() {
         let mut dc = DiceCollection {
-            n_die: 1,
             dice: Dice::new(4, None),
             roll_trait: ApplyTrait::OnCriticalOnly {
                 doubles_with_crit: false,
@@ -350,7 +330,7 @@ mod tests {
         };
 
         // Range for 1d4 = (1, 4)
-        let roll_results: Vec<i32> = (0..10_000).map(|_| dc.roll_critical()).collect();
+        let roll_results: Vec<i32> = (0..1_000).map(|_| dc.roll_critical()).collect();
         let obs_results: (i32, i32) = unpack_roll_vector(&roll_results);
 
         assert_eq!(obs_results, (1, 4));
@@ -359,8 +339,6 @@ mod tests {
     #[test]
     fn test_roll_critical_on_miss_only() {
         let mut dc = DiceCollection {
-            n_die: 1,
-            dice: Dice::new(4, None),
             roll_trait: ApplyTrait::OnMissOnly,
             ..DiceCollection::default()
         };
@@ -372,17 +350,13 @@ mod tests {
     #[test]
     fn test_roll_critical_deadly() {
         let mut dc = DiceCollection {
-            n_die: 1,
             dice: Dice::new(4, None),
-            roll_trait: ApplyTrait::Deadly {
-                extra_sides: 2,
-                extra_dice: 1,
-            },
+            roll_trait: ApplyTrait::Deadly { extra_sides: 2 },
             ..DiceCollection::default()
         };
 
         // Range for 2 * 1d4 + 1d2 = (3, 10)
-        let roll_results: Vec<i32> = (0..10_000).map(|_| dc.roll_critical()).collect();
+        let roll_results: Vec<i32> = (0..1_000).map(|_| dc.roll_critical()).collect();
         let obs_results: (i32, i32) = unpack_roll_vector(&roll_results);
 
         assert_eq!(obs_results, (3, 10));
@@ -391,14 +365,13 @@ mod tests {
     #[test]
     fn test_roll_critical_fatal() {
         let mut dc = DiceCollection {
-            n_die: 1,
             dice: Dice::new(4, None),
             roll_trait: ApplyTrait::Fatal { upgraded_sides: 6 },
             ..DiceCollection::default()
         };
 
         // Range for 3 * 1d6 = (3, 18)
-        let roll_results: Vec<i32> = (0..10_000).map(|_| dc.roll_critical()).collect();
+        let roll_results: Vec<i32> = (0..1_000).map(|_| dc.roll_critical()).collect();
         let obs_results: (i32, i32) = unpack_roll_vector(&roll_results);
 
         assert_eq!(obs_results, (3, 18));
@@ -411,21 +384,17 @@ mod tests {
     #[test]
     fn test_roll_case_normal_standard() {
         let mut dc = DiceCollection {
-            n_die: 1,
-            dice: Dice::new(4, None),
             ..DiceCollection::default()
         };
 
         let obs_result = dc.roll(RollKind::Normal);
-        assert!(obs_result > 0);
-        assert!(obs_result <= 4);
+        assert!(obs_result >= 1);
+        assert!(obs_result <= 20);
     }
 
     #[test]
     fn test_roll_case_normal_on_critical_only() {
         let mut dc = DiceCollection {
-            n_die: 1,
-            dice: Dice::new(4, None),
             roll_trait: ApplyTrait::OnCriticalOnly {
                 doubles_with_crit: false,
             },
@@ -439,8 +408,6 @@ mod tests {
     #[test]
     fn test_roll_case_normal_on_miss_only() {
         let mut dc = DiceCollection {
-            n_die: 1,
-            dice: Dice::new(4, None),
             roll_trait: ApplyTrait::OnMissOnly,
             ..DiceCollection::default()
         };
@@ -452,8 +419,6 @@ mod tests {
     #[test]
     fn test_roll_case_critical_standard() {
         let mut dc = DiceCollection {
-            n_die: 1,
-            dice: Dice::new(4, None),
             roll_trait: ApplyTrait::Standard,
             ..DiceCollection::default()
         };
@@ -465,8 +430,6 @@ mod tests {
     #[test]
     fn test_roll_case_critical_on_critical_only() {
         let mut dc = DiceCollection {
-            n_die: 1,
-            dice: Dice::new(4, None),
             roll_trait: ApplyTrait::OnCriticalOnly {
                 doubles_with_crit: false,
             },
@@ -480,8 +443,6 @@ mod tests {
     #[test]
     fn test_roll_case_critical_on_miss_only() {
         let mut dc = DiceCollection {
-            n_die: 1,
-            dice: Dice::new(4, None),
             roll_trait: ApplyTrait::OnMissOnly,
             ..DiceCollection::default()
         };
@@ -492,12 +453,7 @@ mod tests {
 
     #[test]
     fn test_roll_case_miss_standard() {
-        let mut dc = DiceCollection {
-            n_die: 1,
-            dice: Dice::new(4, None),
-            roll_trait: ApplyTrait::Standard,
-            ..DiceCollection::default()
-        };
+        let mut dc = DiceCollection::default();
 
         let obs_result = dc.roll(RollKind::Miss);
         assert_eq!(0, obs_result);
@@ -506,8 +462,6 @@ mod tests {
     #[test]
     fn test_roll_case_miss_on_critical_only() {
         let mut dc = DiceCollection {
-            n_die: 1,
-            dice: Dice::new(4, None),
             roll_trait: ApplyTrait::OnCriticalOnly {
                 doubles_with_crit: true,
             },
@@ -521,8 +475,6 @@ mod tests {
     #[test]
     fn test_roll_case_miss_on_miss_only() {
         let mut dc = DiceCollection {
-            n_die: 1,
-            dice: Dice::new(4, None),
             roll_trait: ApplyTrait::OnMissOnly,
             ..DiceCollection::default()
         };

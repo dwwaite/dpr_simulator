@@ -1,12 +1,5 @@
+use crate::RollBehaviour;
 use rand::{rngs::StdRng, Rng, SeedableRng};
-use std::cmp::{max, min};
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum RollBehaviour {
-    Standard,
-    KeepHighFromX { extra_rolls: i32 },
-    KeepLowFromX { extra_rolls: i32 },
-}
 
 #[derive(Debug)]
 pub struct Dice {
@@ -121,7 +114,7 @@ mod tests {
 
     #[test]
     fn test_with_roll_behaviour() {
-        let mut my_die =
+        let my_die =
             Dice::new(4, None).with_roll_behaviour(RollBehaviour::KeepHighFromX { extra_rolls: 2 });
 
         assert_eq!(

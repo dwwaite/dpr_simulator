@@ -1,10 +1,22 @@
-use crate::{ApplyTrait, RollKind};
+use crate::{ApplyTrait, RollKind, Ruleset};
 
 /// A representation of the fixed damage element of an attack equation.
 #[derive(Debug, PartialEq)]
 pub struct StaticModifier {
     value: i32,
     mod_trait: ApplyTrait,
+    rule_set: Ruleset,
+}
+
+// Useful for unit testing, don't need for real implementation
+impl Default for StaticModifier {
+    fn default() -> Self {
+        Self {
+            value: 1,
+            mod_trait: ApplyTrait::Standard,
+            rule_set: Ruleset::DND5e,
+        }
+    }
 }
 
 impl StaticModifier {
@@ -15,14 +27,20 @@ impl StaticModifier {
     /// ```
     /// let my_modifier = StaticModifier::new(5, ApplyTrait::Standard);
     /// ```
-    pub fn new(value: i32, mod_trait: ApplyTrait) -> StaticModifier {
-        StaticModifier { value, mod_trait }
+    pub fn new(value: i32, mod_trait: ApplyTrait, rule_set: Ruleset) -> StaticModifier {
+        StaticModifier {
+            value,
+            mod_trait,
+            rule_set,
+        }
     }
 
     fn roll_standard(&self) -> i32 {
         // Catch cases where a regular would be ignored, otherwise return a standard roll
         match self.mod_trait {
-            ApplyTrait::OnCriticalOnly { doubles_with_crit } => 0,
+            ApplyTrait::OnCriticalOnly {
+                doubles_with_crit: _,
+            } => 0,
             ApplyTrait::OnMissOnly => 0,
             _ => self.value,
         }
@@ -46,7 +64,10 @@ impl StaticModifier {
                     self.value
                 }
             }
-            _ => self.value,
+            _ => match self.rule_set {
+                Ruleset::DND5e => self.value,
+                Ruleset::PF2e => self.value * 2,
+            },
         }
     }
 
@@ -63,20 +84,10 @@ impl StaticModifier {
 mod tests {
     use super::*;
 
-    // Useful for unit testing, don't need for real implementation
-    impl Default for StaticModifier {
-        fn default() -> Self {
-            Self {
-                value: 1,
-                mod_trait: ApplyTrait::Standard,
-            }
-        }
-    }
-
     #[test]
     fn test_constructor() {
         let exp_value = StaticModifier::default();
-        let obs_value = StaticModifier::new(1, ApplyTrait::Standard);
+        let obs_value = StaticModifier::new(1, ApplyTrait::Standard, Ruleset::DND5e);
 
         assert_eq!(exp_value, obs_value);
     }
@@ -181,7 +192,7 @@ mod tests {
 
     #[test]
     fn test_roll_miss_on_miss_only_zero() {
-        let sm = StaticModifier::new(0, ApplyTrait::OnMissOnly);
+        let sm = StaticModifier::new(0, ApplyTrait::OnMissOnly, Ruleset::DND5e);
 
         assert_eq!(0, sm.roll_miss());
     }
@@ -191,10 +202,20 @@ mod tests {
     // region: StaticModifier::roll_critical tests
 
     #[test]
-    fn test_roll_critical_standard() {
+    fn test_roll_critical_standard_dnd() {
         let sm = StaticModifier::default();
 
         assert_eq!(1, sm.roll_critical());
+    }
+
+    #[test]
+    fn test_roll_critical_standard_pf2e() {
+        let sm = StaticModifier {
+            rule_set: Ruleset::PF2e,
+            ..StaticModifier::default()
+        };
+
+        assert_eq!(2, sm.roll_critical());
     }
 
     #[test]
