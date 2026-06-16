@@ -25,7 +25,7 @@ impl Default for DiceCollection {
     fn default() -> Self {
         Self {
             n_die: 1,
-            dice: Dice::new(20, None),
+            dice: Dice::new(20),
             roll_trait: ApplyTrait::Standard,
             rule_set: Ruleset::DND5e,
         }
@@ -141,13 +141,12 @@ mod tests {
     fn test_constructor() {
         let exp_dc = DiceCollection {
             n_die: 2,
-            dice: Dice::new(4, None),
+            dice: Dice::new(4),
             roll_trait: ApplyTrait::Standard,
             rule_set: Ruleset::DND5e,
         };
 
-        let obs_dc =
-            DiceCollection::new(4, Dice::new(4, None), ApplyTrait::Standard, Ruleset::DND5e);
+        let obs_dc = DiceCollection::new(4, Dice::new(4), ApplyTrait::Standard, Ruleset::DND5e);
 
         assert_eq!(exp_dc, obs_dc);
     }
@@ -211,7 +210,7 @@ mod tests {
     #[test]
     fn test_roll_standard_normal() {
         let mut dc = DiceCollection {
-            dice: Dice::new(4, None),
+            dice: Dice::new(4),
             ..DiceCollection::default()
         };
 
@@ -291,7 +290,7 @@ mod tests {
     #[test]
     fn test_roll_critical_normal() {
         let mut dc = DiceCollection {
-            dice: Dice::new(4, None),
+            dice: Dice::new(4),
             ..DiceCollection::default()
         };
 
@@ -305,7 +304,7 @@ mod tests {
     #[test]
     fn test_roll_critical_on_critical_only_double() {
         let mut dc = DiceCollection {
-            dice: Dice::new(4, None),
+            dice: Dice::new(4),
             roll_trait: ApplyTrait::OnCriticalOnly {
                 doubles_with_crit: true,
             },
@@ -322,7 +321,7 @@ mod tests {
     #[test]
     fn test_roll_critical_on_critical_only_single() {
         let mut dc = DiceCollection {
-            dice: Dice::new(4, None),
+            dice: Dice::new(4),
             roll_trait: ApplyTrait::OnCriticalOnly {
                 doubles_with_crit: false,
             },
@@ -350,7 +349,7 @@ mod tests {
     #[test]
     fn test_roll_critical_deadly() {
         let mut dc = DiceCollection {
-            dice: Dice::new(4, None),
+            dice: Dice::new(4),
             roll_trait: ApplyTrait::Deadly { extra_sides: 2 },
             ..DiceCollection::default()
         };
@@ -365,7 +364,7 @@ mod tests {
     #[test]
     fn test_roll_critical_fatal() {
         let mut dc = DiceCollection {
-            dice: Dice::new(4, None),
+            dice: Dice::new(4),
             roll_trait: ApplyTrait::Fatal { upgraded_sides: 6 },
             ..DiceCollection::default()
         };

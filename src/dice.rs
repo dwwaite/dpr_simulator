@@ -1,3 +1,4 @@
+use crate::MutationSeed;
 use crate::RollBehaviour;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
@@ -29,15 +30,20 @@ impl Dice {
     ///
     /// let my_die = Dice::new(4, Some(5));
     /// ```
-    pub fn new(sides: i32, rng_seed: Option<u64>) -> Dice {
+    pub fn new(sides: i32) -> Dice {
         Dice {
             sides: sides,
             roll_behaviour: RollBehaviour::Standard,
-            rng: match rng_seed {
-                Some(u) => StdRng::seed_from_u64(u),
-                None => StdRng::from_os_rng(),
-            },
+            rng: StdRng::from_os_rng(),
         }
+    }
+
+    pub fn with_roll_seed(mut self, mut_seed: &mut MutationSeed) -> Self {
+        self.rng = match mut_seed.next_seed() {
+            Some(u) => StdRng::seed_from_u64(u),
+            None => StdRng::from_os_rng(),
+        };
+        self
     }
 
     pub fn with_roll_behaviour(mut self, roll_behaviour: RollBehaviour) -> Self {
@@ -96,7 +102,7 @@ mod tests {
             rng: StdRng::from_os_rng(),
         };
 
-        let obs_die = Dice::new(1, None);
+        let obs_die = Dice::new(1);
         assert_eq!(exp_die, obs_die);
     }
 
@@ -108,14 +114,33 @@ mod tests {
             rng: StdRng::from_os_rng(),
         };
 
-        let obs_die = Dice::new(1, None);
+        let obs_die = Dice::new(1);
         assert_eq!(exp_die, obs_die);
+    }
+
+    #[test]
+    fn test_with_roll_seed_init() {
+        let n_sides = 1_000;
+
+        let mut exp_die = Dice {
+            sides: n_sides,
+            roll_behaviour: RollBehaviour::Standard,
+            rng: StdRng::seed_from_u64(5),
+        };
+
+        let mut mut_seed = MutationSeed::new(Some(4));
+        let mut obs_die = Dice::new(n_sides).with_roll_seed(&mut mut_seed);
+
+        let exp_roll = exp_die.rng.random_range(1..=n_sides);
+        let obs_roll = obs_die.rng.random_range(1..=n_sides);
+
+        assert_eq!(exp_roll, obs_roll);
     }
 
     #[test]
     fn test_with_roll_behaviour() {
         let my_die =
-            Dice::new(4, None).with_roll_behaviour(RollBehaviour::KeepHighFromX { extra_rolls: 2 });
+            Dice::new(4).with_roll_behaviour(RollBehaviour::KeepHighFromX { extra_rolls: 2 });
 
         assert_eq!(
             RollBehaviour::KeepHighFromX { extra_rolls: 2 },
@@ -126,10 +151,10 @@ mod tests {
     #[test]
     fn test_dice_eq() {
         let dice_1 =
-            Dice::new(4, None).with_roll_behaviour(RollBehaviour::KeepHighFromX { extra_rolls: 2 });
+            Dice::new(4).with_roll_behaviour(RollBehaviour::KeepHighFromX { extra_rolls: 2 });
 
         let dice_2 =
-            Dice::new(4, None).with_roll_behaviour(RollBehaviour::KeepHighFromX { extra_rolls: 2 });
+            Dice::new(4).with_roll_behaviour(RollBehaviour::KeepHighFromX { extra_rolls: 2 });
 
         assert_eq!(dice_1, dice_2);
     }
@@ -137,10 +162,10 @@ mod tests {
     #[test]
     fn test_dice_ne_sides() {
         let dice_1 =
-            Dice::new(5, None).with_roll_behaviour(RollBehaviour::KeepHighFromX { extra_rolls: 2 });
+            Dice::new(5).with_roll_behaviour(RollBehaviour::KeepHighFromX { extra_rolls: 2 });
 
         let dice_2 =
-            Dice::new(4, None).with_roll_behaviour(RollBehaviour::KeepHighFromX { extra_rolls: 2 });
+            Dice::new(4).with_roll_behaviour(RollBehaviour::KeepHighFromX { extra_rolls: 2 });
 
         assert_ne!(dice_1, dice_2);
     }
@@ -148,9 +173,9 @@ mod tests {
     #[test]
     fn test_dice_ne_behaviour() {
         let dice_1 =
-            Dice::new(4, None).with_roll_behaviour(RollBehaviour::KeepHighFromX { extra_rolls: 2 });
+            Dice::new(4).with_roll_behaviour(RollBehaviour::KeepHighFromX { extra_rolls: 2 });
 
-        let dice_2 = Dice::new(4, None).with_roll_behaviour(RollBehaviour::Standard);
+        let dice_2 = Dice::new(4).with_roll_behaviour(RollBehaviour::Standard);
 
         assert_ne!(dice_1, dice_2);
     }
@@ -162,8 +187,11 @@ mod tests {
     #[test]
     fn test_roll_deterministic_with_seed() {
         // Same seed should produce same result
-        let mut dice1 = Dice::new(1_000, Some(77777u64));
-        let mut dice2 = Dice::new(1_000, Some(77777u64));
+        let mut mut_seed = MutationSeed::new(Some(1));
+        let mut dice1 = Dice::new(1_000).with_roll_seed(&mut mut_seed);
+
+        let mut mut_seed = MutationSeed::new(Some(1));
+        let mut dice2 = Dice::new(1_000).with_roll_seed(&mut mut_seed);
 
         let obs_result1 = dice1.roll(dice1.sides);
         let obs_result2 = dice2.roll(dice2.sides);
@@ -173,7 +201,7 @@ mod tests {
 
     #[test]
     fn test_roll_standard() {
-        let mut my_die = Dice::new(4, None);
+        let mut my_die = Dice::new(4);
 
         let roll_results: Vec<i32> = (0..10_000).map(|_| my_die.roll(my_die.sides)).collect();
         let obs_results: (i32, i32) = unpack_roll_vector(&roll_results);
@@ -183,7 +211,7 @@ mod tests {
 
     #[test]
     fn test_roll_standard_other() {
-        let mut my_die = Dice::new(4, None);
+        let mut my_die = Dice::new(4);
 
         let roll_results: Vec<i32> = (0..10_000).map(|_| my_die.roll(10)).collect();
         let obs_results: (i32, i32) = unpack_roll_vector(&roll_results);
@@ -195,9 +223,9 @@ mod tests {
     fn test_roll_keep_high() {
         // Test by confirming that the average roll with KeepHighFromX behaviour is greater than
         // that of standard.
-        let mut std_dice = Dice::new(100, None);
-        let mut kh_die = Dice::new(100, None)
-            .with_roll_behaviour(RollBehaviour::KeepHighFromX { extra_rolls: 10 });
+        let mut std_dice = Dice::new(100);
+        let mut kh_die =
+            Dice::new(100).with_roll_behaviour(RollBehaviour::KeepHighFromX { extra_rolls: 10 });
 
         let std_total: i32 = (0..10_000)
             .map(|_| std_dice.roll(std_dice.sides))
@@ -218,9 +246,9 @@ mod tests {
     fn test_roll_keep_low() {
         // Test by confirming that the average roll with KeepHighFromX behaviour is greater than
         // that of standard.
-        let mut std_dice = Dice::new(100, None);
-        let mut kl_die = Dice::new(100, None)
-            .with_roll_behaviour(RollBehaviour::KeepLowFromX { extra_rolls: 10 });
+        let mut std_dice = Dice::new(100);
+        let mut kl_die =
+            Dice::new(100).with_roll_behaviour(RollBehaviour::KeepLowFromX { extra_rolls: 10 });
 
         let std_total: i32 = (0..10_000)
             .map(|_| std_dice.roll(std_dice.sides))

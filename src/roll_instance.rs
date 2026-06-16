@@ -1,5 +1,6 @@
 use crate::dice::Dice;
 use crate::dice_collection::DiceCollection;
+use crate::mutation_seed::MutationSeed;
 use crate::static_modifier::StaticModifier;
 use crate::{ApplyTrait, RollBehaviour, RollKind, Ruleset};
 use once_cell::sync::Lazy;
@@ -145,7 +146,7 @@ impl RollInstanceBuilder {
     /// ```
     /// // ...
     /// ```
-    fn parse_die_elements(&mut self, notation: &str, seed: Option<u64>) {
+    fn parse_die_elements(&mut self, notation: &str, mut_seed: &mut MutationSeed) {
         // Use a lazy wrapper so that the expression is only compiled a single time.
         // Capture the NdS notation and also optional traits denoted by square brackets.
         // Traits are ignored in this capture, but required so that the die expression can
@@ -167,7 +168,10 @@ impl RollInstanceBuilder {
             let dice_mod = RollInstanceBuilder::resolve_dice_behaviour(&traits);
             let dc_mod = RollInstanceBuilder::resolve_dice_trait(&traits);
 
-            let die = Dice::new(sides, seed).with_roll_behaviour(dice_mod);
+            let die = Dice::new(sides)
+                .with_roll_seed(mut_seed)
+                .with_roll_behaviour(dice_mod);
+
             self.dice
                 .push(DiceCollection::new(count, die, dc_mod, self.rule_set));
         }
@@ -214,9 +218,11 @@ impl RollInstanceBuilder {
     /// ```
     /// // ...
     /// ```
-    pub fn parse_user_input(&mut self, notation: &str, seed: Option<u64>) {
-        self.parse_die_elements(notation, seed);
+    pub fn parse_user_input(mut self, notation: &str, mut_seed: &mut MutationSeed) -> Self {
+        self.parse_die_elements(notation, mut_seed);
         self.parse_static_elements(notation);
+
+        self
     }
 
     pub fn build(self) -> RollInstance {
@@ -570,36 +576,40 @@ mod tests {
 
     #[test]
     fn test_parse_die_elements_simple_die_dnd() {
-        let dc = DiceCollection::new(1, Dice::new(4, None), ApplyTrait::Standard, Ruleset::DND5e);
+        let dc = DiceCollection::new(1, Dice::new(4), ApplyTrait::Standard, Ruleset::DND5e);
 
         let mut exp_builder = RollInstanceBuilder::new(Ruleset::DND5e);
         exp_builder.dice.push(dc);
 
+        let mut mut_seed = MutationSeed::new(None);
         let mut builder = RollInstanceBuilder::new(Ruleset::DND5e);
-        builder.parse_die_elements("1d4", None);
+        builder.parse_die_elements("1d4", &mut mut_seed);
 
         assert_eq!(exp_builder, builder);
     }
 
     #[test]
     fn test_parse_die_elements_simple_die_pf2e() {
-        let dc = DiceCollection::new(1, Dice::new(4, None), ApplyTrait::Standard, Ruleset::PF2e);
+        let dc = DiceCollection::new(1, Dice::new(4), ApplyTrait::Standard, Ruleset::PF2e);
 
         let mut exp_builder = RollInstanceBuilder::new(Ruleset::PF2e);
         exp_builder.dice.push(dc);
 
+        let mut mut_seed = MutationSeed::new(None);
         let mut builder = RollInstanceBuilder::new(Ruleset::PF2e);
-        builder.parse_die_elements("1d4", None);
+        builder.parse_die_elements("1d4", &mut mut_seed);
 
         assert_eq!(exp_builder, builder);
     }
 
     #[test]
     fn test_parse_die_elements_set_seed() {
-        let exp_value = Dice::new(4, Some(5)).roll(4);
+        let mut mut_seed = MutationSeed::new(Some(1));
+        let exp_value = Dice::new(4).with_roll_seed(&mut mut_seed).roll(4);
 
+        let mut mut_seed = MutationSeed::new(Some(4));
         let mut builder = RollInstanceBuilder::new(Ruleset::DND5e);
-        builder.parse_die_elements("1d4", Some(5));
+        builder.parse_die_elements("1d4", &mut mut_seed);
 
         let obs_value = builder.build().roll(RollKind::Normal);
         assert_eq!(exp_value, obs_value);
@@ -609,7 +619,7 @@ mod tests {
     fn test_parse_die_elements_die_trait_deadly_single() {
         let dc = DiceCollection::new(
             1,
-            Dice::new(4, None),
+            Dice::new(4),
             ApplyTrait::Deadly { extra_sides: 6 },
             Ruleset::DND5e,
         );
@@ -617,8 +627,9 @@ mod tests {
         let mut exp_builder = RollInstanceBuilder::new(Ruleset::DND5e);
         exp_builder.dice.push(dc);
 
+        let mut mut_seed = MutationSeed::new(None);
         let mut builder = RollInstanceBuilder::new(Ruleset::DND5e);
-        builder.parse_die_elements("1d4[deadly6]", None);
+        builder.parse_die_elements("1d4[deadly6]", &mut mut_seed);
 
         assert_eq!(exp_builder, builder);
     }
@@ -627,7 +638,7 @@ mod tests {
     fn test_parse_die_elements_die_trait_deadly_double() {
         let dc = DiceCollection::new(
             2,
-            Dice::new(4, None),
+            Dice::new(4),
             ApplyTrait::Deadly { extra_sides: 6 },
             Ruleset::DND5e,
         );
@@ -635,8 +646,9 @@ mod tests {
         let mut exp_builder = RollInstanceBuilder::new(Ruleset::DND5e);
         exp_builder.dice.push(dc);
 
+        let mut mut_seed = MutationSeed::new(None);
         let mut builder = RollInstanceBuilder::new(Ruleset::DND5e);
-        builder.parse_die_elements("2d4[deadly6]", None);
+        builder.parse_die_elements("2d4[deadly6]", &mut mut_seed);
 
         assert_eq!(exp_builder, builder);
     }
@@ -645,7 +657,7 @@ mod tests {
     fn test_parse_die_elements_die_trait_fatal() {
         let dc = DiceCollection::new(
             1,
-            Dice::new(4, None),
+            Dice::new(4),
             ApplyTrait::Fatal { upgraded_sides: 8 },
             Ruleset::DND5e,
         );
@@ -653,26 +665,23 @@ mod tests {
         let mut exp_builder = RollInstanceBuilder::new(Ruleset::DND5e);
         exp_builder.dice.push(dc);
 
+        let mut mut_seed = MutationSeed::new(None);
         let mut builder = RollInstanceBuilder::new(Ruleset::DND5e);
-        builder.parse_die_elements("1d4[fatal8]", None);
+        builder.parse_die_elements("1d4[fatal8]", &mut mut_seed);
 
         assert_eq!(exp_builder, builder);
     }
 
     #[test]
     fn test_parse_die_elements_die_trait_onmiss() {
-        let dc = DiceCollection::new(
-            1,
-            Dice::new(4, None),
-            ApplyTrait::OnMissOnly,
-            Ruleset::DND5e,
-        );
+        let dc = DiceCollection::new(1, Dice::new(4), ApplyTrait::OnMissOnly, Ruleset::DND5e);
 
         let mut exp_builder = RollInstanceBuilder::new(Ruleset::DND5e);
         exp_builder.dice.push(dc);
 
+        let mut mut_seed = MutationSeed::new(None);
         let mut builder = RollInstanceBuilder::new(Ruleset::DND5e);
-        builder.parse_die_elements("1d4[onmiss]", None);
+        builder.parse_die_elements("1d4[onmiss]", &mut mut_seed);
 
         assert_eq!(exp_builder, builder);
     }
@@ -681,7 +690,7 @@ mod tests {
     fn test_parse_die_elements_die_trait_oncrit() {
         let dc = DiceCollection::new(
             1,
-            Dice::new(4, None),
+            Dice::new(4),
             ApplyTrait::OnCriticalOnly {
                 doubles_with_crit: false,
             },
@@ -691,8 +700,9 @@ mod tests {
         let mut exp_builder = RollInstanceBuilder::new(Ruleset::DND5e);
         exp_builder.dice.push(dc);
 
+        let mut mut_seed = MutationSeed::new(None);
         let mut builder = RollInstanceBuilder::new(Ruleset::DND5e);
-        builder.parse_die_elements("1d4[oncrit]", None);
+        builder.parse_die_elements("1d4[oncrit]", &mut mut_seed);
 
         assert_eq!(exp_builder, builder);
     }
@@ -701,7 +711,7 @@ mod tests {
     fn test_parse_die_elements_die_trait_oncrit_doubles() {
         let dc = DiceCollection::new(
             1,
-            Dice::new(4, None),
+            Dice::new(4),
             ApplyTrait::OnCriticalOnly {
                 doubles_with_crit: true,
             },
@@ -711,8 +721,9 @@ mod tests {
         let mut exp_builder = RollInstanceBuilder::new(Ruleset::DND5e);
         exp_builder.dice.push(dc);
 
+        let mut mut_seed = MutationSeed::new(None);
         let mut builder = RollInstanceBuilder::new(Ruleset::DND5e);
-        builder.parse_die_elements("1d4[oncrit_doubles]", None);
+        builder.parse_die_elements("1d4[oncrit_doubles]", &mut mut_seed);
 
         assert_eq!(exp_builder, builder);
     }
@@ -721,7 +732,7 @@ mod tests {
     fn test_parse_die_elements_die_trait_kh() {
         let dc = DiceCollection::new(
             1,
-            Dice::new(4, None).with_roll_behaviour(RollBehaviour::KeepHighFromX { extra_rolls: 2 }),
+            Dice::new(4).with_roll_behaviour(RollBehaviour::KeepHighFromX { extra_rolls: 2 }),
             ApplyTrait::Standard,
             Ruleset::DND5e,
         );
@@ -729,8 +740,9 @@ mod tests {
         let mut exp_builder = RollInstanceBuilder::new(Ruleset::DND5e);
         exp_builder.dice.push(dc);
 
+        let mut mut_seed = MutationSeed::new(None);
         let mut builder = RollInstanceBuilder::new(Ruleset::DND5e);
-        builder.parse_die_elements("1d4[kh2]", None);
+        builder.parse_die_elements("1d4[kh2]", &mut mut_seed);
 
         assert_eq!(exp_builder, builder);
     }
@@ -739,7 +751,7 @@ mod tests {
     fn test_parse_die_elements_die_trait_kl() {
         let dc = DiceCollection::new(
             1,
-            Dice::new(4, None).with_roll_behaviour(RollBehaviour::KeepLowFromX { extra_rolls: 3 }),
+            Dice::new(4).with_roll_behaviour(RollBehaviour::KeepLowFromX { extra_rolls: 3 }),
             ApplyTrait::Standard,
             Ruleset::DND5e,
         );
@@ -747,26 +759,23 @@ mod tests {
         let mut exp_builder = RollInstanceBuilder::new(Ruleset::DND5e);
         exp_builder.dice.push(dc);
 
+        let mut mut_seed = MutationSeed::new(None);
         let mut builder = RollInstanceBuilder::new(Ruleset::DND5e);
-        builder.parse_die_elements("1d4[kl3]", None);
+        builder.parse_die_elements("1d4[kl3]", &mut mut_seed);
 
         assert_eq!(exp_builder, builder);
     }
 
     #[test]
     fn test_parse_die_elements_die_mixed_traits() {
-        let dc = DiceCollection::new(
-            1,
-            Dice::new(4, None),
-            ApplyTrait::OnMissOnly,
-            Ruleset::DND5e,
-        );
+        let dc = DiceCollection::new(1, Dice::new(4), ApplyTrait::OnMissOnly, Ruleset::DND5e);
 
         let mut exp_builder = RollInstanceBuilder::new(Ruleset::DND5e);
         exp_builder.dice.push(dc);
 
+        let mut mut_seed = MutationSeed::new(None);
         let mut builder = RollInstanceBuilder::new(Ruleset::DND5e);
-        builder.parse_die_elements("1d4[onmiss][fatal6]", None);
+        builder.parse_die_elements("1d4[onmiss][fatal6]", &mut mut_seed);
 
         assert_eq!(exp_builder, builder);
     }
@@ -775,7 +784,7 @@ mod tests {
     fn test_parse_die_elements_die_mixed_roll_behaviours() {
         let dc = DiceCollection::new(
             1,
-            Dice::new(4, None).with_roll_behaviour(RollBehaviour::KeepLowFromX { extra_rolls: 2 }),
+            Dice::new(4).with_roll_behaviour(RollBehaviour::KeepLowFromX { extra_rolls: 2 }),
             ApplyTrait::Standard,
             Ruleset::DND5e,
         );
@@ -783,8 +792,9 @@ mod tests {
         let mut exp_builder = RollInstanceBuilder::new(Ruleset::DND5e);
         exp_builder.dice.push(dc);
 
+        let mut mut_seed = MutationSeed::new(None);
         let mut builder = RollInstanceBuilder::new(Ruleset::DND5e);
-        builder.parse_die_elements("1d4[kh6][kl2]", None);
+        builder.parse_die_elements("1d4[kh6][kl2]", &mut mut_seed);
 
         assert_eq!(exp_builder, builder);
     }
@@ -793,7 +803,7 @@ mod tests {
     fn test_parse_die_elements_die_trait_and_behaviour() {
         let dc = DiceCollection::new(
             1,
-            Dice::new(4, None).with_roll_behaviour(RollBehaviour::KeepLowFromX { extra_rolls: 2 }),
+            Dice::new(4).with_roll_behaviour(RollBehaviour::KeepLowFromX { extra_rolls: 2 }),
             ApplyTrait::OnMissOnly,
             Ruleset::DND5e,
         );
@@ -801,8 +811,9 @@ mod tests {
         let mut exp_builder = RollInstanceBuilder::new(Ruleset::DND5e);
         exp_builder.dice.push(dc);
 
+        let mut mut_seed = MutationSeed::new(None);
         let mut builder = RollInstanceBuilder::new(Ruleset::DND5e);
-        builder.parse_die_elements("1d4[onmiss][kl2]", None);
+        builder.parse_die_elements("1d4[onmiss][kl2]", &mut mut_seed);
 
         assert_eq!(exp_builder, builder);
     }
@@ -812,20 +823,21 @@ mod tests {
         let mut exp_builder = RollInstanceBuilder::new(Ruleset::DND5e);
         exp_builder.dice.push(DiceCollection::new(
             1,
-            Dice::new(4, None),
+            Dice::new(4),
             ApplyTrait::OnMissOnly,
             Ruleset::DND5e,
         ));
 
         exp_builder.dice.push(DiceCollection::new(
             2,
-            Dice::new(6, None).with_roll_behaviour(RollBehaviour::KeepLowFromX { extra_rolls: 2 }),
+            Dice::new(6).with_roll_behaviour(RollBehaviour::KeepLowFromX { extra_rolls: 2 }),
             ApplyTrait::Standard,
             Ruleset::DND5e,
         ));
 
+        let mut mut_seed = MutationSeed::new(None);
         let mut builder = RollInstanceBuilder::new(Ruleset::DND5e);
-        builder.parse_die_elements("1d4[onmiss],2d6[kl2]", None);
+        builder.parse_die_elements("1d4[onmiss],2d6[kl2]", &mut mut_seed);
 
         assert_eq!(exp_builder, builder);
     }
@@ -986,15 +998,16 @@ mod tests {
             .push(StaticModifier::new(5, ApplyTrait::Standard, Ruleset::DND5e));
         exp_builder.dice.push(DiceCollection::new(
             1,
-            Dice::new(4, None),
+            Dice::new(4),
             ApplyTrait::Standard,
             Ruleset::DND5e,
         ));
 
+        let mut mut_seed = MutationSeed::new(None);
         let mut builder = RollInstanceBuilder::new(Ruleset::DND5e);
-        builder.parse_user_input("1d4+5", None);
+        let obs_builder = builder.parse_user_input("1d4+5", &mut mut_seed);
 
-        assert_eq!(exp_builder, builder);
+        assert_eq!(exp_builder, obs_builder);
     }
 
     #[test]
@@ -1011,21 +1024,22 @@ mod tests {
 
         exp_builder.dice.push(DiceCollection::new(
             1,
-            Dice::new(4, None),
+            Dice::new(4),
             ApplyTrait::Standard,
             Ruleset::DND5e,
         ));
         exp_builder.dice.push(DiceCollection::new(
             2,
-            Dice::new(6, None),
+            Dice::new(6),
             ApplyTrait::Deadly { extra_sides: 8 },
             Ruleset::DND5e,
         ));
 
+        let mut mut_seed = MutationSeed::new(None);
         let mut builder = RollInstanceBuilder::new(Ruleset::DND5e);
-        builder.parse_user_input("1d4,2d6[deadly8]+5-2[onmiss]", None);
+        let obs_builder = builder.parse_user_input("1d4,2d6[deadly8]+5-2[onmiss]", &mut mut_seed);
 
-        assert_eq!(exp_builder, builder);
+        assert_eq!(exp_builder, obs_builder);
     }
 
     // endregion:
