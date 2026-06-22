@@ -4,8 +4,8 @@ use crate::{ApplyTrait, RollKind, Ruleset};
 /// A representation of a collection of dice subject to roll conditions
 #[derive(Debug)]
 pub struct DiceCollection {
-    n_die: i32,
-    dice: Dice,
+    pub n_die: i32,
+    pub dice: Dice,
     roll_trait: ApplyTrait,
     rule_set: Ruleset,
 }

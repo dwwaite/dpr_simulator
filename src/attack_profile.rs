@@ -1,23 +1,95 @@
-use crate::{HitResult, RollCollection};
+use crate::mutation_seed::MutationSeed;
+use crate::{D20Value, RollInstance, RollInstanceBuilder, RollKind, Ruleset};
 
 #[derive(Debug, PartialEq)]
 pub struct AttackProfile {
     pub target_ac: i32,
-    hit_collection: Vec<RollCollection>,
-    damage_collection: Vec<RollCollection>,
+    rule_set: Ruleset,
+    hit_collection: Vec<RollInstance>,
+    damage_collection: Vec<RollInstance>,
 }
 
 impl AttackProfile {
-    pub fn new(
-        target_ac: i32,
-        hit_collection: Vec<RollCollection>,
-        damage_collection: Vec<RollCollection>,
-    ) -> AttackProfile {
+    pub fn new(target_ac: i32, rule_set: Ruleset) -> AttackProfile {
         AttackProfile {
             target_ac,
-            hit_collection,
-            damage_collection,
+            rule_set,
+            hit_collection: vec![],
+            damage_collection: vec![],
         }
+    }
+
+    /// Assess a roll event against a target armour class under D&D 5e rules
+    ///
+    /// # Examples
+    /// ```
+    /// // Rolling 1d20+5
+    /// // ...
+    /// ```
+    fn evaluate_hit_roll_dnd(roll_instance: &mut RollInstance, target_ac: i32) -> RollKind {
+        let (d20_value, roll_value) = roll_instance.roll_as_hit();
+
+        match d20_value {
+            D20Value::Natural20 => RollKind::Critical,
+            D20Value::Natural1 => RollKind::Miss,
+            _ => {
+                if roll_value >= target_ac {
+                    return RollKind::Normal;
+                } else {
+                    return RollKind::Miss;
+                }
+            }
+        }
+    }
+
+    /// Assess a roll event against a target armour class under Pathfinder 2e rules
+    ///
+    /// # Examples
+    /// ```
+    /// // Rolling 1d20+5
+    /// // ...
+    /// ```
+    fn evaluate_hit_roll_pf2e(roll_instance: &mut RollInstance, target_ac: i32) -> RollKind {
+        let (d20_value, roll_value) = roll_instance.roll_as_hit();
+
+        // Set an adjustment according to whether or not a 1 or 20 was rolled.
+        let adjustment = match d20_value {
+            D20Value::Natural20 => 1,
+            D20Value::Natural1 => -1,
+            D20Value::Normal => 0,
+        };
+
+        // Evaluate the roll score and modify by the roll adjustment
+        let roll_score = match roll_value - target_ac {
+            diff if diff >= 10 => 2,
+            diff if diff >= 0 => 1,
+            _ => 0,
+        } + adjustment;
+
+        // Make the final evaluation and return
+        match roll_score.clamp(0, 2) {
+            2 => RollKind::Critical,
+            1 => RollKind::Normal,
+            _ => RollKind::Miss,
+        }
+    }
+
+    pub fn add_attack(
+        &mut self,
+        hit_notation: &str,
+        dmg_notation: &str,
+        mut_seed: &mut MutationSeed,
+    ) {
+        let hit_profile = RollInstanceBuilder::new(self.rule_set)
+            .parse_user_input(&hit_notation, mut_seed)
+            .build();
+
+        let dmg_profile = RollInstanceBuilder::new(self.rule_set)
+            .parse_user_input(&dmg_notation, mut_seed)
+            .build();
+
+        self.hit_collection.push(hit_profile);
+        self.damage_collection.push(dmg_profile);
     }
 
     /// Iterate through the hit/damage DiceContext pairs and return the damage dealt.
@@ -29,15 +101,7 @@ impl AttackProfile {
     ///
     /// # Examples
     /// ```
-    /// // Create representation of a flat 1d20 roll to hit for a 1d8 weapon
-    /// let hit_die = DiceBuilder::new().roll_max(20).build();
-    /// let hit_collection = RollCollection::new(vec![hit_die], vec![]);
-    ///
-    /// let dmg_die = DiceBuilder::new().roll_max(8).build();
-    /// let dmg_context = RollCollection::new(vec![dmg_die], vec![]);
-    ///
-    /// let attack_profile = AttackProfile::new(10, vec![hit_context], vec![dmg_context]);
-    /// let (n_crits, n_hits, damage_dealt) = attack_profile.roll_turn(&mut roll_element);
+    /// // ...
     /// ```
     pub fn roll_turn(&mut self) -> (i32, i32, i32) {
         // Declare counters for the results - number of crits, number of hits, total damage
@@ -45,26 +109,29 @@ impl AttackProfile {
         let mut hit_counter = 0;
         let mut total_damage = 0;
 
-        // For each hit/damage in the sequence, compute results
-        for (hit_collection, dmg_collection) in self
+        for (hit_instance, dmg_instance) in self
             .hit_collection
             .iter_mut()
             .zip(self.damage_collection.iter_mut())
         {
-            let hit_result = hit_collection.roll_against_armour_class(self.target_ac);
-            total_damage += dmg_collection.roll_damage_result(&hit_result);
+            let hit_result = match self.rule_set {
+                Ruleset::DND5e => {
+                    AttackProfile::evaluate_hit_roll_dnd(hit_instance, self.target_ac)
+                }
+                Ruleset::PF2e => {
+                    AttackProfile::evaluate_hit_roll_pf2e(hit_instance, self.target_ac)
+                }
+            };
 
             match hit_result {
-                HitResult::CriticalHit => {
-                    crit_counter += 1;
-                    hit_counter += 1;
-                }
-                HitResult::Hit => {
-                    hit_counter += 1;
-                }
-                HitResult::Miss => (),
-            }
+                RollKind::Critical => crit_counter += 1,
+                RollKind::Normal => hit_counter += 1,
+                _ => (),
+            };
+
+            total_damage += dmg_instance.roll_as_damage(hit_result);
         }
+
         (crit_counter, hit_counter, total_damage)
     }
 }
@@ -72,165 +139,327 @@ impl AttackProfile {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{dice::DiceBuilder, static_modifier::StaticModifier, ModifierBehaviour, Ruleset};
+    use crate::{attack_profile, mutation_seed, roll_instance};
 
-    fn spawn_roll_collections(
-        dice_pairs: Vec<(i32, i32)>,
-        modifier_values: Vec<i32>,
-        rule_mode: Ruleset,
-    ) -> Vec<RollCollection> {
-        let mut roll_collections: Vec<RollCollection> = Vec::new();
-        for (dice_values, modifier_value) in dice_pairs.into_iter().zip(modifier_values.into_iter())
-        {
-            let (min_value, max_value) = dice_values;
-
-            let die = DiceBuilder::new()
-                .set_roll_min(min_value)
-                .set_roll_max(max_value)
-                .build();
-            let modifier = StaticModifier::new(modifier_value, ModifierBehaviour::OnHit);
-
-            roll_collections.push(RollCollection::new(vec![die], vec![modifier], rule_mode));
+    fn create_predictable_mut_seed(roll_target: D20Value) -> MutationSeed {
+        // Create a MutationSeed set to return a predictable value when rolled on a 1d20 dice.
+        // For a standard roll, the dice will roll 14 on first roll.
+        match roll_target {
+            D20Value::Natural20 => MutationSeed::new(Some(26)),
+            D20Value::Natural1 => MutationSeed::new(Some(36)),
+            _ => MutationSeed::new(Some(3)),
         }
-        roll_collections
     }
 
-    // region: roll_turn() single tests
+    // region: AttackProfile initialisation
 
     #[test]
-    fn test_roll_turn_crit() {
-        // Test the behaviour of the function when there is a single pair of dice in the attack profile which crit.
-        let hit_collection = spawn_roll_collections(vec![(20, 20)], vec![0], Ruleset::DND5e);
-        let damage_collection = spawn_roll_collections(vec![(1, 1)], vec![0], Ruleset::DND5e);
+    fn test_attackprofile_init() {
+        let exp_profile = AttackProfile {
+            target_ac: 10,
+            rule_set: Ruleset::DND5e,
+            hit_collection: vec![],
+            damage_collection: vec![],
+        };
 
-        let mut attack_profile = AttackProfile::new(1, hit_collection, damage_collection);
-        let (obs_crit, obs_hit, obs_dmg) = attack_profile.roll_turn();
+        let obs_profile = AttackProfile::new(10, Ruleset::DND5e);
 
-        assert_eq!(obs_crit, 1);
-        assert_eq!(obs_hit, 1);
-        assert_eq!(obs_dmg, 2);
-    }
-
-    #[test]
-    fn test_roll_turn_hit() {
-        // Test the behaviour of the function when there is a single pair of dice in the attack profile.
-        let hit_collection = spawn_roll_collections(vec![(2, 5)], vec![0], Ruleset::DND5e);
-        let damage_collection = spawn_roll_collections(vec![(1, 1)], vec![0], Ruleset::DND5e);
-
-        let mut attack_profile = AttackProfile::new(1, hit_collection, damage_collection);
-        let (obs_crit, obs_hit, obs_dmg) = attack_profile.roll_turn();
-
-        assert_eq!(obs_crit, 0);
-        assert_eq!(obs_hit, 1);
-        assert_eq!(obs_dmg, 1);
-    }
-
-    #[test]
-    fn test_roll_turn_miss() {
-        // Test the behaviour of the function when there is a single pair of dice in the attack profile.
-        let hit_collection = spawn_roll_collections(vec![(2, 5)], vec![0], Ruleset::DND5e);
-        let damage_collection = spawn_roll_collections(vec![(1, 1)], vec![0], Ruleset::DND5e);
-
-        let mut attack_profile = AttackProfile::new(10, hit_collection, damage_collection);
-        let (obs_crit, obs_hit, obs_dmg) = attack_profile.roll_turn();
-
-        assert_eq!(obs_crit, 0);
-        assert_eq!(obs_hit, 0);
-        assert_eq!(obs_dmg, 0);
+        assert_eq!(exp_profile, obs_profile);
     }
 
     // endregion:
 
-    // region: roll_turn() multiple tests
+    // region: AttackProfile::evaluate_hit_roll_dnd tests
 
     #[test]
-    fn test_roll_turn_crit_multiple() {
-        // Test the behaviour of the function when there are multiple pairs of dice which crit.
-        let hit_collection =
-            spawn_roll_collections(vec![(11, 12), (13, 14)], vec![0, 0], Ruleset::PF2e);
-        let damage_collection =
-            spawn_roll_collections(vec![(1, 1), (2, 2)], vec![0, 0], Ruleset::DND5e);
+    fn test_evaluate_hit_roll_dnd_critical() {
+        let mut mutation_seed = create_predictable_mut_seed(D20Value::Natural20);
+        let mut roll_instance = RollInstanceBuilder::new(Ruleset::DND5e)
+            .parse_user_input("1d20+1", &mut mutation_seed)
+            .build();
 
-        let mut attack_profile = AttackProfile::new(1, hit_collection, damage_collection);
-        let (obs_crit, obs_hit, obs_dmg) = attack_profile.roll_turn();
-
-        assert_eq!(obs_crit, 2);
-        assert_eq!(obs_hit, 2);
-        assert_eq!(obs_dmg, 6);
+        let obs_roll = AttackProfile::evaluate_hit_roll_dnd(&mut roll_instance, 10);
+        assert_eq!(obs_roll, RollKind::Critical);
     }
 
     #[test]
-    fn test_roll_turn_hit_multiple() {
-        // Test the behaviour of the function when there are multiple pairs of dice in the attack profile
-        // and they all hit.
-        let hit_collection =
-            spawn_roll_collections(vec![(2, 5), (2, 6)], vec![0, 0], Ruleset::DND5e);
-        let damage_collection =
-            spawn_roll_collections(vec![(1, 1), (1, 1)], vec![0, 0], Ruleset::DND5e);
+    fn test_evaluate_hit_roll_dnd_standard() {
+        let mut mutation_seed = create_predictable_mut_seed(D20Value::Normal);
+        let mut roll_instance = RollInstanceBuilder::new(Ruleset::DND5e)
+            .parse_user_input("1d20+1", &mut mutation_seed)
+            .build();
 
-        let mut attack_profile = AttackProfile::new(1, hit_collection, damage_collection);
-        let (obs_crit, obs_hit, obs_dmg) = attack_profile.roll_turn();
-
-        assert_eq!(obs_crit, 0);
-        assert_eq!(obs_hit, 2);
-        assert_eq!(obs_dmg, 2);
+        let obs_roll = AttackProfile::evaluate_hit_roll_dnd(&mut roll_instance, 10);
+        assert_eq!(obs_roll, RollKind::Normal);
     }
 
     #[test]
-    fn test_roll_turn_miss_multiple() {
-        // Test the behaviour of the function when there are multiple pairs of dice in the attack profile
-        // and they all miss.
-        let hit_collection =
-            spawn_roll_collections(vec![(2, 5), (2, 6)], vec![0, 0], Ruleset::DND5e);
-        let damage_collection =
-            spawn_roll_collections(vec![(1, 1), (1, 1)], vec![0, 0], Ruleset::DND5e);
+    fn test_evaluate_hit_roll_dnd_miss_ac() {
+        let mut mutation_seed = create_predictable_mut_seed(D20Value::Normal);
+        let mut roll_instance = RollInstanceBuilder::new(Ruleset::DND5e)
+            .parse_user_input("1d20+1", &mut mutation_seed)
+            .build();
 
-        let mut attack_profile = AttackProfile::new(10, hit_collection, damage_collection);
-        let (obs_crit, obs_hit, obs_dmg) = attack_profile.roll_turn();
+        let obs_roll = AttackProfile::evaluate_hit_roll_dnd(&mut roll_instance, 16);
+        assert_eq!(obs_roll, RollKind::Miss);
+    }
 
-        assert_eq!(obs_crit, 0);
-        assert_eq!(obs_hit, 0);
-        assert_eq!(obs_dmg, 0);
+    #[test]
+    fn test_evaluate_hit_roll_dnd_miss_nat1() {
+        let mut mutation_seed = create_predictable_mut_seed(D20Value::Natural1);
+        let mut roll_instance = RollInstanceBuilder::new(Ruleset::DND5e)
+            .parse_user_input("1d20+1", &mut mutation_seed)
+            .build();
+
+        let obs_roll = AttackProfile::evaluate_hit_roll_dnd(&mut roll_instance, 1);
+        assert_eq!(obs_roll, RollKind::Miss);
     }
 
     // endregion:
 
-    // region: roll_turn() mixed tests
+    // region: AttackProfile::evaluate_hit_roll_pf2e tests
 
     #[test]
-    fn test_roll_turn_crit_mixed() {
-        // Test the behaviour of the function when there are a mix of pairs of dice which crit, hit, and miss.
-        let hit_collection = spawn_roll_collections(
-            vec![(20, 20), (12, 14), (1, 2)],
-            vec![0, 0, 0],
-            Ruleset::DND5e,
-        );
-        let damage_collection =
-            spawn_roll_collections(vec![(2, 2), (1, 1), (1, 1)], vec![0, 0, 0], Ruleset::DND5e);
+    fn test_evaluate_hit_roll_pf2e_critical() {
+        let mut mutation_seed = create_predictable_mut_seed(D20Value::Normal);
+        let mut roll_instance = RollInstanceBuilder::new(Ruleset::PF2e)
+            .parse_user_input("1d20+1", &mut mutation_seed)
+            .build();
 
-        let mut attack_profile = AttackProfile::new(10, hit_collection, damage_collection);
+        // Roll 15 against 5, evaluate critical by overshoot
+        let obs_roll = AttackProfile::evaluate_hit_roll_pf2e(&mut roll_instance, 5);
+        assert_eq!(obs_roll, RollKind::Critical);
+    }
+
+    #[test]
+    fn test_evaluate_hit_roll_pf2e_critical_adjusted() {
+        let mut mutation_seed = create_predictable_mut_seed(D20Value::Natural20);
+        let mut roll_instance = RollInstanceBuilder::new(Ruleset::PF2e)
+            .parse_user_input("1d20+1", &mut mutation_seed)
+            .build();
+
+        // Roll 21 against 20, evaluate critical by nat20
+        let obs_roll = AttackProfile::evaluate_hit_roll_pf2e(&mut roll_instance, 20);
+        assert_eq!(obs_roll, RollKind::Critical);
+    }
+
+    #[test]
+    fn test_evaluate_hit_roll_pf2e_standard() {
+        let mut mutation_seed = create_predictable_mut_seed(D20Value::Normal);
+        let mut roll_instance = RollInstanceBuilder::new(Ruleset::PF2e)
+            .parse_user_input("1d20+1", &mut mutation_seed)
+            .build();
+
+        // Roll 15 against 14, evaluate hit
+        let obs_roll = AttackProfile::evaluate_hit_roll_pf2e(&mut roll_instance, 14);
+        assert_eq!(obs_roll, RollKind::Normal);
+    }
+
+    #[test]
+    fn test_evaluate_hit_roll_pf2e_standard_adjusted() {
+        let mut mutation_seed = create_predictable_mut_seed(D20Value::Natural20);
+        let mut roll_instance = RollInstanceBuilder::new(Ruleset::PF2e)
+            .parse_user_input("1d20+1", &mut mutation_seed)
+            .build();
+
+        // Roll 21 against 25, evaluate hit by nat20
+        let obs_roll = AttackProfile::evaluate_hit_roll_pf2e(&mut roll_instance, 25);
+        assert_eq!(obs_roll, RollKind::Normal);
+    }
+
+    #[test]
+    fn test_evaluate_hit_roll_pf2e_miss() {
+        let mut mutation_seed = create_predictable_mut_seed(D20Value::Normal);
+        let mut roll_instance = RollInstanceBuilder::new(Ruleset::PF2e)
+            .parse_user_input("1d20+1", &mut mutation_seed)
+            .build();
+
+        // Roll 15 against 16, evaluate miss
+        let obs_roll = AttackProfile::evaluate_hit_roll_pf2e(&mut roll_instance, 16);
+        assert_eq!(obs_roll, RollKind::Miss);
+    }
+
+    #[test]
+    fn test_evaluate_hit_roll_pf2e_miss_adjusted() {
+        let mut mutation_seed = create_predictable_mut_seed(D20Value::Natural1);
+        let mut roll_instance = RollInstanceBuilder::new(Ruleset::PF2e)
+            .parse_user_input("1d20+1", &mut mutation_seed)
+            .build();
+
+        // Roll 2 against 2, evaluate miss by nat1
+        let obs_roll = AttackProfile::evaluate_hit_roll_pf2e(&mut roll_instance, 2);
+        assert_eq!(obs_roll, RollKind::Miss);
+    }
+
+    // endregion:
+
+    // region: AttackProfile::add_attack tests
+
+    #[test]
+    fn test_add_attack_no_seed() {
+        let hit_notation = "1d20+5";
+        let dmg_notation = "1d8+3";
+
+        let mut mut_seed = MutationSeed::new(None);
+
+        let exp_hit = RollInstanceBuilder::new(Ruleset::DND5e)
+            .parse_user_input(hit_notation, &mut mut_seed)
+            .build();
+        let exp_dmg = RollInstanceBuilder::new(Ruleset::DND5e)
+            .parse_user_input(dmg_notation, &mut mut_seed)
+            .build();
+
+        let exp_profile = AttackProfile {
+            target_ac: 10,
+            rule_set: Ruleset::DND5e,
+            hit_collection: vec![exp_hit],
+            damage_collection: vec![exp_dmg],
+        };
+
+        let mut obs_profile = AttackProfile::new(10, Ruleset::DND5e);
+        obs_profile.add_attack(hit_notation, dmg_notation, &mut mut_seed);
+
+        assert_eq!(exp_profile, obs_profile);
+    }
+
+    #[test]
+    fn test_add_attack_set_seed_short_profile() {
+        let hit_notation = "1d20+5";
+        let dmg_notation = "1d8+3";
+
+        let mut mut_seed = MutationSeed::new(Some(10));
+
+        let exp_roll_hit = RollInstanceBuilder::new(Ruleset::DND5e)
+            .parse_user_input(hit_notation, &mut mut_seed)
+            .build()
+            .roll_as_damage(RollKind::Normal);
+        let exp_roll_damage = RollInstanceBuilder::new(Ruleset::DND5e)
+            .parse_user_input(dmg_notation, &mut mut_seed)
+            .build()
+            .roll_as_damage(RollKind::Normal);
+
+        let mut mut_seed = MutationSeed::new(Some(10));
+        let mut profile = AttackProfile::new(10, Ruleset::DND5e);
+        profile.add_attack(hit_notation, dmg_notation, &mut mut_seed);
+
+        let obs_roll_hit = profile
+            .hit_collection
+            .first_mut()
+            .unwrap()
+            .roll_as_damage(RollKind::Normal);
+        let obs_roll_damage = profile
+            .damage_collection
+            .first_mut()
+            .unwrap()
+            .roll_as_damage(RollKind::Normal);
+
+        assert_eq!(exp_roll_hit, obs_roll_hit);
+        assert_eq!(exp_roll_damage, obs_roll_damage);
+    }
+
+    #[test]
+    fn test_add_attack_set_seed_long_profile() {
+        let hit_notation = "1d20,1d30+5";
+        let dmg_notation = "1d8,1d4+3";
+
+        let mut mut_seed = MutationSeed::new(Some(10));
+
+        let exp_roll_hit = RollInstanceBuilder::new(Ruleset::DND5e)
+            .parse_user_input(hit_notation, &mut mut_seed)
+            .build()
+            .roll_as_damage(RollKind::Normal);
+        let exp_roll_damage = RollInstanceBuilder::new(Ruleset::DND5e)
+            .parse_user_input(dmg_notation, &mut mut_seed)
+            .build()
+            .roll_as_damage(RollKind::Normal);
+
+        let mut mut_seed = MutationSeed::new(Some(10));
+        let mut profile = AttackProfile::new(10, Ruleset::DND5e);
+        profile.add_attack(hit_notation, dmg_notation, &mut mut_seed);
+
+        let obs_roll_hit = profile
+            .hit_collection
+            .first_mut()
+            .unwrap()
+            .roll_as_damage(RollKind::Normal);
+        let obs_roll_damage = profile
+            .damage_collection
+            .first_mut()
+            .unwrap()
+            .roll_as_damage(RollKind::Normal);
+
+        assert_eq!(exp_roll_hit, obs_roll_hit);
+        assert_eq!(exp_roll_damage, obs_roll_damage);
+    }
+
+    // endregion:
+
+    // region: AttackProfile::roll_turn tests
+
+    #[test]
+    fn test_roll_turn_crit_counter_single() {
+        let mut mutation_seed = create_predictable_mut_seed(D20Value::Natural20);
+        let mut attack_profile = AttackProfile::new(15, Ruleset::DND5e);
+        attack_profile.add_attack("1d20+1", "1d1+1", &mut mutation_seed);
+
         let (obs_crit, obs_hit, obs_dmg) = attack_profile.roll_turn();
+        assert_eq!(1, obs_crit);
+        assert_eq!(0, obs_hit);
+        assert_eq!(3, obs_dmg);
+    }
 
-        assert_eq!(obs_crit, 1);
-        assert_eq!(obs_hit, 2);
-        assert_eq!(obs_dmg, 5);
+    #[test]
+    fn test_roll_turn_normal_counter_single() {
+        let mut mutation_seed = create_predictable_mut_seed(D20Value::Normal);
+        let mut attack_profile = AttackProfile::new(15, Ruleset::DND5e);
+        attack_profile.add_attack("1d20+1", "1d1+1", &mut mutation_seed);
+
+        let (obs_crit, obs_hit, obs_dmg) = attack_profile.roll_turn();
+        assert_eq!(0, obs_crit);
+        assert_eq!(1, obs_hit);
+        assert_eq!(2, obs_dmg);
+    }
+
+    #[test]
+    fn test_roll_turn_miss_counter_single() {
+        let mut mutation_seed = create_predictable_mut_seed(D20Value::Natural1);
+        let mut attack_profile = AttackProfile::new(15, Ruleset::DND5e);
+        attack_profile.add_attack("1d20+1", "1d1+1", &mut mutation_seed);
+
+        let (obs_crit, obs_hit, obs_dmg) = attack_profile.roll_turn();
+        assert_eq!(0, obs_crit);
+        assert_eq!(0, obs_hit);
+        assert_eq!(0, obs_dmg);
     }
 
     #[test]
     fn test_roll_turn_mixed() {
-        // Test the behaviour of the function when there are multiple pairs of dice in the attack profile
-        // and one hits, one misses
-        let hit_collection =
-            spawn_roll_collections(vec![(2, 5), (12, 14)], vec![0, 0], Ruleset::DND5e);
-        let damage_collection =
-            spawn_roll_collections(vec![(1, 1), (1, 1)], vec![0, 0], Ruleset::DND5e);
+        // From the nat20 seed, the roll sequence will return crit, crit, miss, hit.
+        let mut mutation_seed = create_predictable_mut_seed(D20Value::Natural20);
+        let mut attack_profile = AttackProfile::new(15, Ruleset::DND5e);
+        attack_profile.add_attack("1d20+1", "1d1+1", &mut mutation_seed);
+        attack_profile.add_attack("1d20+1", "1d1+1", &mut mutation_seed);
+        attack_profile.add_attack("1d20+1", "1d1+1", &mut mutation_seed);
+        attack_profile.add_attack("1d20+1", "1d1+1", &mut mutation_seed);
 
-        let mut attack_profile = AttackProfile::new(10, hit_collection, damage_collection);
         let (obs_crit, obs_hit, obs_dmg) = attack_profile.roll_turn();
+        assert_eq!(2, obs_crit);
+        assert_eq!(1, obs_hit);
+        assert_eq!(8, obs_dmg);
+    }
 
-        assert_eq!(obs_crit, 0);
-        assert_eq!(obs_hit, 1);
-        assert_eq!(obs_dmg, 1);
+    #[test]
+    fn test_roll_turn_pf2e_route() {
+        // Non-exhaustive test, just to confirm that setting the AttackProfile rule routes correctly.
+        let mut mutation_seed = create_predictable_mut_seed(D20Value::Normal);
+        let mut attack_profile = AttackProfile::new(5, Ruleset::PF2e);
+        attack_profile.add_attack("1d20+1", "1d1+1", &mut mutation_seed);
+
+        // Result should critical by rolling 15 against AC5, then roll a Pathfinder critical for damage.
+        let (obs_crit, obs_hit, obs_dmg) = attack_profile.roll_turn();
+        assert_eq!(1, obs_crit);
+        assert_eq!(0, obs_hit);
+        assert_eq!(4, obs_dmg);
     }
 
     // endregion:

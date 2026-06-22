@@ -2,7 +2,7 @@ use crate::dice::Dice;
 use crate::dice_collection::DiceCollection;
 use crate::mutation_seed::MutationSeed;
 use crate::static_modifier::StaticModifier;
-use crate::{ApplyTrait, RollBehaviour, RollKind, Ruleset};
+use crate::{ApplyTrait, D20Value, RollBehaviour, RollKind, Ruleset};
 use once_cell::sync::Lazy;
 use regex::Regex;
 
@@ -13,11 +13,35 @@ pub struct RollInstance {
 }
 
 impl RollInstance {
-    pub fn roll(&mut self, roll_kind: RollKind) -> i32 {
+    pub fn roll_as_damage(&mut self, roll_kind: RollKind) -> i32 {
         let roll_total: i32 = self.dice.iter_mut().map(|x| x.roll(roll_kind)).sum();
         let mod_total: i32 = self.modifiers.iter().map(|x| x.roll(roll_kind)).sum();
 
         roll_total + mod_total
+    }
+
+    pub fn roll_as_hit(&mut self) -> (D20Value, i32) {
+        let mut d20_value = D20Value::Normal;
+        let mut roll_total = 0;
+
+        for dc in self.dice.iter_mut() {
+            // This is not an elegant implementation.
+            let roll = dc.roll(RollKind::Normal);
+            if (roll == 20) & (dc.n_die == 1) & (dc.dice.sides == 20) {
+                d20_value = D20Value::Natural20;
+            } else if (roll == 1) & (dc.n_die == 1) & (dc.dice.sides == 20) {
+                d20_value = D20Value::Natural1;
+            }
+            roll_total += roll
+        }
+
+        let mod_total: i32 = self
+            .modifiers
+            .iter()
+            .map(|x| x.roll(RollKind::Normal))
+            .sum();
+
+        (d20_value, roll_total + mod_total)
     }
 }
 
@@ -238,22 +262,22 @@ mod tests {
     use super::*;
     use crate::roll_instance;
 
-    // region: RollInstance::roll tests
+    // region: RollInstance::roll_as_damage tests
 
     #[test]
-    fn test_roll_case_normal_single() {
+    fn test_roll_as_damage_case_normal_single() {
         let mut roll_instance = RollInstance {
             dice: vec![DiceCollection::default()],
             modifiers: vec![StaticModifier::default()],
         };
 
         // min(1d20) + 1 = 2
-        let obs_result = roll_instance.roll(RollKind::Normal);
+        let obs_result = roll_instance.roll_as_damage(RollKind::Normal);
         assert!(obs_result >= 2);
     }
 
     #[test]
-    fn test_roll_case_normal_multiple() {
+    fn test_roll_as_damage_case_normal_multiple() {
         let mut roll_instance = RollInstance {
             dice: vec![
                 DiceCollection::default(),
@@ -264,24 +288,24 @@ mod tests {
         };
 
         // min(1d20) + min(1d20) + min(1d20) + 1 + 1 = 5
-        let obs_result = roll_instance.roll(RollKind::Normal);
+        let obs_result = roll_instance.roll_as_damage(RollKind::Normal);
         assert!(obs_result >= 5);
     }
 
     #[test]
-    fn test_roll_case_critical_single() {
+    fn test_roll_as_damage_case_critical_single() {
         let mut roll_instance = RollInstance {
             dice: vec![DiceCollection::default()],
             modifiers: vec![StaticModifier::default()],
         };
 
         // min(2d20) + 1 = 3 (D&D rules)
-        let obs_result = roll_instance.roll(RollKind::Critical);
+        let obs_result = roll_instance.roll_as_damage(RollKind::Critical);
         assert!(obs_result >= 3);
     }
 
     #[test]
-    fn test_roll_case_critical_multiple() {
+    fn test_roll_as_damage_case_critical_multiple() {
         let mut roll_instance = RollInstance {
             dice: vec![
                 DiceCollection::default(),
@@ -292,19 +316,68 @@ mod tests {
         };
 
         // min(2d20) + min(2d20) + min(2d20) + 1 + 1 = 5 (D&D rules)
-        let obs_result = roll_instance.roll(RollKind::Critical);
+        let obs_result = roll_instance.roll_as_damage(RollKind::Critical);
         assert!(obs_result >= 3);
     }
 
     #[test]
-    fn test_roll_case_miss() {
+    fn test_roll_as_damage_case_miss() {
         let mut roll_instance = RollInstance {
             dice: vec![DiceCollection::default()],
             modifiers: vec![StaticModifier::default()],
         };
 
-        let obs_result = roll_instance.roll(RollKind::Miss);
+        let obs_result = roll_instance.roll_as_damage(RollKind::Miss);
         assert_eq!(0, obs_result);
+    }
+
+    // endregion:
+
+    // region: RollInstance::roll_as_hit tests
+
+    #[test]
+    fn test_roll_as_hit_natural_20() {
+        // For the current implementation of Dice/DiceCollection and MutationSeed, the first seed initialisation
+        // value to yield a 20 of a 1d20 roll is 26.
+        let mut mutation_seed = MutationSeed::new(Some(26));
+        let mut roll_instance = RollInstanceBuilder::new(Ruleset::DND5e)
+            .parse_user_input("1d20+1", &mut mutation_seed)
+            .build();
+
+        let (d20_value, obs_value) = roll_instance.roll_as_hit();
+
+        assert_eq!(D20Value::Natural20, d20_value);
+        assert_eq!(21, obs_value); // 1d20 + 1 at max
+    }
+
+    #[test]
+    fn test_roll_as_hit_natural_1() {
+        // For the current implementation of Dice/DiceCollection and MutationSeed, the first seed initialisation
+        // value to yield a 20 of a 1d20 roll is 36.
+        let mut mutation_seed = MutationSeed::new(Some(36));
+        let mut roll_instance = RollInstanceBuilder::new(Ruleset::DND5e)
+            .parse_user_input("1d20+1", &mut mutation_seed)
+            .build();
+
+        let (d20_value, obs_value) = roll_instance.roll_as_hit();
+
+        assert_eq!(D20Value::Natural1, d20_value);
+        assert_eq!(2, obs_value); // 1d20 + 1 at min
+    }
+
+    #[test]
+    fn test_roll_as_hit_regular() {
+        // For the current implementation of Dice/DiceCollection and MutationSeed, seeding at 3 rolls a value
+        // of 14.
+        let mut mutation_seed = MutationSeed::new(Some(3));
+        let mut roll_instance = RollInstanceBuilder::new(Ruleset::DND5e)
+            .parse_user_input("1d20+1", &mut mutation_seed)
+            .build();
+
+        let (d20_value, obs_value) = roll_instance.roll_as_hit();
+
+        assert_eq!(D20Value::Normal, d20_value);
+        assert_eq!(15, obs_value);
     }
 
     // endregion:
@@ -611,7 +684,7 @@ mod tests {
         let mut builder = RollInstanceBuilder::new(Ruleset::DND5e);
         builder.parse_die_elements("1d4", &mut mut_seed);
 
-        let obs_value = builder.build().roll(RollKind::Normal);
+        let obs_value = builder.build().roll_as_damage(RollKind::Normal);
         assert_eq!(exp_value, obs_value);
     }
 
@@ -1040,6 +1113,19 @@ mod tests {
         let obs_builder = builder.parse_user_input("1d4,2d6[deadly8]+5-2[onmiss]", &mut mut_seed);
 
         assert_eq!(exp_builder, obs_builder);
+    }
+
+    #[test]
+    fn test_parse_user_input_seed_mutation() {
+        // A test to confirm that the MutationSeed is being correctly called for the number
+        // of die being made within the function.
+
+        let mut mut_seed = MutationSeed::new(Some(1));
+        let _ = RollInstanceBuilder::new(Ruleset::DND5e)
+            .parse_user_input("1d4,2d6,3d8,4d7", &mut mut_seed);
+
+        // Expected value of the mut seed is 5, then increments to 6 when called here
+        assert_eq!(Some(6), mut_seed.next_seed());
     }
 
     // endregion:
