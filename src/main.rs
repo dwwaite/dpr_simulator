@@ -1,6 +1,6 @@
 use clap::Parser;
-//use polars::frame::DataFrame;
 use dpr_simulator::Ruleset;
+use polars::frame::DataFrame;
 
 fn main() {
     // Entry point for the tool interface
@@ -8,18 +8,16 @@ fn main() {
     let cli: Cli = Cli::parse();
 
     // Upack the optional parameters
-    let _ruleset = match cli.use_pf2e_criticals {
+    let ruleset = match cli.use_pf2e_criticals {
         true => Ruleset::PF2e,
         false => Ruleset::DND5e,
     };
 
     // Confirm that the hit and attack vectors are equal in length
-    let mut _hit_vector = cli.to_hit;
-    let mut _dmg_vector = cli.weapon_details;
-    //dpr_simulator::equalise_input_vectors(&mut hit_vector, &mut dmg_vector);
+    let mut hit_vector = cli.to_hit;
+    let mut dmg_vector = cli.weapon_details;
+    dpr_simulator::equalise_input_vectors(&mut hit_vector, &mut dmg_vector);
 
-    dpr_simulator::exec();
-    /*
     // Process the information and capture results as a polars DataFrame
     let mut output_df = dpr_simulator::process_simulation(
         cli.ac_targets,
@@ -27,6 +25,7 @@ fn main() {
         dmg_vector,
         ruleset,
         cli.number_turns,
+        cli.seed,
         cli.n_threads,
     );
 
@@ -42,10 +41,8 @@ fn main() {
     */
     let summary_df = dpr_simulator::summarise_results(output_df);
     println!("{}", summary_df);
-*/
 }
 
-/*
 fn store_output(output_path: &str, output_df: &mut DataFrame) {
     match dpr_simulator::write_to_parquet(output_path, output_df) {
         Ok(_) => println!("Completed! Results written to file '{}'!", output_path),
@@ -55,7 +52,6 @@ fn store_output(output_path: &str, output_df: &mut DataFrame) {
         }
     }
 }
-*/
 
 #[derive(Parser)]
 struct Cli {
@@ -87,4 +83,8 @@ struct Cli {
     /// Use Pathfinder 2e rules for critical hits and damage calculation
     #[arg(long, default_value_t = false)]
     use_pf2e_criticals: bool,
+
+    /// Set the seed to dice rolling to a predetermined value (optional)
+    #[arg(long, value_name = "SEED VALUE")]
+    seed: Option<u64>,
 }

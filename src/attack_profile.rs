@@ -1,5 +1,4 @@
-use crate::mutation_seed::MutationSeed;
-use crate::{D20Value, RollInstance, RollInstanceBuilder, RollKind, Ruleset};
+use crate::{D20Value, MutationSeed, RollInstance, RollInstanceBuilder, RollKind, Ruleset};
 
 #[derive(Debug, PartialEq)]
 pub struct AttackProfile {
@@ -34,9 +33,9 @@ impl AttackProfile {
             D20Value::Natural1 => RollKind::Miss,
             _ => {
                 if roll_value >= target_ac {
-                    return RollKind::Normal;
+                    RollKind::Normal
                 } else {
-                    return RollKind::Miss;
+                    RollKind::Miss
                 }
             }
         }
@@ -81,11 +80,11 @@ impl AttackProfile {
         mut_seed: &mut MutationSeed,
     ) {
         let hit_profile = RollInstanceBuilder::new(self.rule_set)
-            .parse_user_input(&hit_notation, mut_seed)
+            .parse_user_input(hit_notation, mut_seed)
             .build();
 
         let dmg_profile = RollInstanceBuilder::new(self.rule_set)
-            .parse_user_input(&dmg_notation, mut_seed)
+            .parse_user_input(dmg_notation, mut_seed)
             .build();
 
         self.hit_collection.push(hit_profile);
@@ -139,7 +138,6 @@ impl AttackProfile {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{attack_profile, mutation_seed, roll_instance};
 
     fn create_predictable_mut_seed(roll_target: D20Value) -> MutationSeed {
         // Create a MutationSeed set to return a predictable value when rolled on a 1d20 dice.
@@ -392,6 +390,18 @@ mod tests {
         assert_eq!(exp_roll_damage, obs_roll_damage);
     }
 
+    #[test]
+    fn test_add_attack_multiple_calls() {
+        let mut mut_seed = MutationSeed::new(None);
+        let mut obs_profile = AttackProfile::new(10, Ruleset::DND5e);
+
+        obs_profile.add_attack("", "", &mut mut_seed);
+        obs_profile.add_attack("", "", &mut mut_seed);
+
+        assert_eq!(2, obs_profile.hit_collection.len());
+        assert_eq!(2, obs_profile.damage_collection.len());
+    }
+
     // endregion:
 
     // region: AttackProfile::roll_turn tests
@@ -433,19 +443,79 @@ mod tests {
     }
 
     #[test]
-    fn test_roll_turn_mixed() {
-        // From the nat20 seed, the roll sequence will return crit, crit, miss, hit.
-        let mut mutation_seed = create_predictable_mut_seed(D20Value::Natural20);
+    fn test_roll_turn_multiple_crit() {
         let mut attack_profile = AttackProfile::new(15, Ruleset::DND5e);
-        attack_profile.add_attack("1d20+1", "1d1+1", &mut mutation_seed);
-        attack_profile.add_attack("1d20+1", "1d1+1", &mut mutation_seed);
-        attack_profile.add_attack("1d20+1", "1d1+1", &mut mutation_seed);
-        attack_profile.add_attack("1d20+1", "1d1+1", &mut mutation_seed);
+
+        let mut mut_seed = create_predictable_mut_seed(D20Value::Natural20);
+        attack_profile.add_attack("1d20+1", "1d1+1", &mut mut_seed);
+
+        let mut mut_seed = create_predictable_mut_seed(D20Value::Natural20);
+        attack_profile.add_attack("1d20+1", "1d1+1", &mut mut_seed);
+
+        let mut mut_seed = create_predictable_mut_seed(D20Value::Natural20);
+        attack_profile.add_attack("1d20+1", "1d1+1", &mut mut_seed);
 
         let (obs_crit, obs_hit, obs_dmg) = attack_profile.roll_turn();
-        assert_eq!(2, obs_crit);
+        assert_eq!(3, obs_crit);
+        assert_eq!(0, obs_hit);
+        assert_eq!(9, obs_dmg);
+    }
+
+    #[test]
+    fn test_roll_turn_multiple_hit() {
+        let mut attack_profile = AttackProfile::new(15, Ruleset::DND5e);
+
+        let mut mut_seed = create_predictable_mut_seed(D20Value::Normal);
+        attack_profile.add_attack("1d20+1", "1d1+1", &mut mut_seed);
+
+        let mut mut_seed = create_predictable_mut_seed(D20Value::Normal);
+        attack_profile.add_attack("1d20+1", "1d1+1", &mut mut_seed);
+
+        let mut mut_seed = create_predictable_mut_seed(D20Value::Normal);
+        attack_profile.add_attack("1d20+1", "1d1+1", &mut mut_seed);
+
+        let (obs_crit, obs_hit, obs_dmg) = attack_profile.roll_turn();
+        assert_eq!(0, obs_crit);
+        assert_eq!(3, obs_hit);
+        assert_eq!(6, obs_dmg);
+    }
+
+    #[test]
+    fn test_roll_turn_multiple_miss() {
+        let mut attack_profile = AttackProfile::new(15, Ruleset::DND5e);
+
+        let mut mut_seed = create_predictable_mut_seed(D20Value::Natural1);
+        attack_profile.add_attack("1d20+1", "1d1+1", &mut mut_seed);
+
+        let mut mut_seed = create_predictable_mut_seed(D20Value::Natural1);
+        attack_profile.add_attack("1d20+1", "1d1+1", &mut mut_seed);
+
+        let mut mut_seed = create_predictable_mut_seed(D20Value::Natural1);
+        attack_profile.add_attack("1d20+1", "1d1+1", &mut mut_seed);
+
+        let (obs_crit, obs_hit, obs_dmg) = attack_profile.roll_turn();
+        assert_eq!(0, obs_crit);
+        assert_eq!(0, obs_hit);
+        assert_eq!(0, obs_dmg);
+    }
+
+    #[test]
+    fn test_roll_turn_multiple_mixed() {
+        let mut attack_profile = AttackProfile::new(15, Ruleset::DND5e);
+
+        let mut crit_seed = create_predictable_mut_seed(D20Value::Natural20);
+        attack_profile.add_attack("1d20+1", "1d1+1", &mut crit_seed);
+
+        let mut std_seed = create_predictable_mut_seed(D20Value::Normal);
+        attack_profile.add_attack("1d20+1", "1d1+1", &mut std_seed);
+
+        let mut miss_seed = create_predictable_mut_seed(D20Value::Natural1);
+        attack_profile.add_attack("1d20+1", "1d1+1", &mut miss_seed);
+
+        let (obs_crit, obs_hit, obs_dmg) = attack_profile.roll_turn();
+        assert_eq!(1, obs_crit);
         assert_eq!(1, obs_hit);
-        assert_eq!(8, obs_dmg);
+        assert_eq!(5, obs_dmg);
     }
 
     #[test]

@@ -1,5 +1,4 @@
-use crate::dice::Dice;
-use crate::{ApplyTrait, RollKind, Ruleset};
+use crate::{dice::Dice, ApplyTrait, RollKind, Ruleset};
 
 /// A representation of a collection of dice subject to roll conditions
 #[derive(Debug)]
@@ -59,10 +58,10 @@ impl DiceCollection {
         rule_set: Ruleset,
     ) -> DiceCollection {
         DiceCollection {
-            n_die: n_die,
-            dice: dice,
-            roll_trait: roll_trait,
-            rule_set: rule_set,
+            n_die,
+            dice,
+            roll_trait,
+            rule_set,
         }
     }
 

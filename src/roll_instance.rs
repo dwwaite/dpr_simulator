@@ -1,8 +1,7 @@
-use crate::dice::Dice;
-use crate::dice_collection::DiceCollection;
-use crate::mutation_seed::MutationSeed;
-use crate::static_modifier::StaticModifier;
-use crate::{ApplyTrait, D20Value, RollBehaviour, RollKind, Ruleset};
+use crate::{
+    dice::Dice, dice_collection::DiceCollection, static_modifier::StaticModifier, ApplyTrait,
+    D20Value, MutationSeed, RollBehaviour, RollKind, Ruleset,
+};
 use once_cell::sync::Lazy;
 use regex::Regex;
 
@@ -57,7 +56,7 @@ impl RollInstanceBuilder {
         RollInstanceBuilder {
             dice: Vec::new(),
             modifiers: Vec::new(),
-            rule_set: rule_set,
+            rule_set,
         }
     }
 
@@ -138,7 +137,7 @@ impl RollInstanceBuilder {
     }
 
     fn resolve_modifier_trait(trait_options: &Vec<(&str, i32)>) -> ApplyTrait {
-        for (trait_label, value) in trait_options {
+        for (trait_label, _) in trait_options {
             match trait_label.to_lowercase().as_str() {
                 "oncrit" => {
                     return ApplyTrait::OnCriticalOnly {
@@ -260,7 +259,6 @@ impl RollInstanceBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::roll_instance;
 
     // region: RollInstance::roll_as_damage tests
 
@@ -1077,8 +1075,8 @@ mod tests {
         ));
 
         let mut mut_seed = MutationSeed::new(None);
-        let mut builder = RollInstanceBuilder::new(Ruleset::DND5e);
-        let obs_builder = builder.parse_user_input("1d4+5", &mut mut_seed);
+        let obs_builder =
+            RollInstanceBuilder::new(Ruleset::DND5e).parse_user_input("1d4+5", &mut mut_seed);
 
         assert_eq!(exp_builder, obs_builder);
     }
@@ -1109,8 +1107,8 @@ mod tests {
         ));
 
         let mut mut_seed = MutationSeed::new(None);
-        let mut builder = RollInstanceBuilder::new(Ruleset::DND5e);
-        let obs_builder = builder.parse_user_input("1d4,2d6[deadly8]+5-2[onmiss]", &mut mut_seed);
+        let obs_builder = RollInstanceBuilder::new(Ruleset::DND5e)
+            .parse_user_input("1d4,2d6[deadly8]+5-2[onmiss]", &mut mut_seed);
 
         assert_eq!(exp_builder, obs_builder);
     }

@@ -5,9 +5,7 @@ pub struct MutationSeed {
 
 impl MutationSeed {
     pub fn new(init_seed: Option<u64>) -> MutationSeed {
-        MutationSeed {
-            init_seed: init_seed,
-        }
+        MutationSeed { init_seed }
     }
 
     pub fn next_seed(&mut self) -> Option<u64> {

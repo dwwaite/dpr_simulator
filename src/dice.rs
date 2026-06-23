@@ -1,5 +1,4 @@
-use crate::MutationSeed;
-use crate::RollBehaviour;
+use crate::{MutationSeed, RollBehaviour};
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
 #[derive(Debug)]
@@ -32,7 +31,7 @@ impl Dice {
     /// ```
     pub fn new(sides: i32) -> Dice {
         Dice {
-            sides: sides,
+            sides,
             roll_behaviour: RollBehaviour::Standard,
             rng: StdRng::from_os_rng(),
         }
