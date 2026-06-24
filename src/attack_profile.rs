@@ -123,7 +123,10 @@ impl AttackProfile {
             };
 
             match hit_result {
-                RollKind::Critical => crit_counter += 1,
+                RollKind::Critical => {
+                    crit_counter += 1;
+                    hit_counter += 1;
+                }
                 RollKind::Normal => hit_counter += 1,
                 _ => (),
             };
@@ -414,7 +417,7 @@ mod tests {
 
         let (obs_crit, obs_hit, obs_dmg) = attack_profile.roll_turn();
         assert_eq!(1, obs_crit);
-        assert_eq!(0, obs_hit);
+        assert_eq!(1, obs_hit);
         assert_eq!(3, obs_dmg);
     }
 
@@ -457,7 +460,7 @@ mod tests {
 
         let (obs_crit, obs_hit, obs_dmg) = attack_profile.roll_turn();
         assert_eq!(3, obs_crit);
-        assert_eq!(0, obs_hit);
+        assert_eq!(3, obs_hit);
         assert_eq!(9, obs_dmg);
     }
 
@@ -514,7 +517,7 @@ mod tests {
 
         let (obs_crit, obs_hit, obs_dmg) = attack_profile.roll_turn();
         assert_eq!(1, obs_crit);
-        assert_eq!(1, obs_hit);
+        assert_eq!(2, obs_hit);
         assert_eq!(5, obs_dmg);
     }
 
@@ -528,7 +531,7 @@ mod tests {
         // Result should critical by rolling 15 against AC5, then roll a Pathfinder critical for damage.
         let (obs_crit, obs_hit, obs_dmg) = attack_profile.roll_turn();
         assert_eq!(1, obs_crit);
-        assert_eq!(0, obs_hit);
+        assert_eq!(1, obs_hit);
         assert_eq!(4, obs_dmg);
     }
 
