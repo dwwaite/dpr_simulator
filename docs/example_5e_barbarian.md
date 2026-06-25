@@ -1,10 +1,10 @@
-# D&D 5E: Barbarian
+# D&D 5.5E: Barbarian
 
 A run through of different weapon set ups for a barbarian - 1h, 2h with GWM, and dual-wielding.
 
-Running for a 5th level character, variant human lineage so;
+Running for a 5th level character;
 
-1. Starting with a feat and 16 STR
+1. Starting with 16 STR
 1. Level 4 ASI or feat
 1. Extra attack
 1. Rage (+2) on all attacks
@@ -15,107 +15,91 @@ Running for a 5th level character, variant human lineage so;
 
 ## 1H Barbarian
 
-Starting feat: [Fighting Initiate](http://dnd5e.wikidot.com/feat:fighting-initiate) (Dueling)
-
 |Feature|Value|
 |:---|:---:|
 |Level 4 ASI|+2 STR|
 |Weapon|Longsword (1d8)|
-|Hit bonus|7 (4 STR + 3 PROF)|
-|Damage modifier|+8 (+4 STR, +2 rage, +2 dueling)|
+|Hit bonus|7 (+4 STR, +3 PROF)|
+|Damage modifier|+6 (+4 STR, +2 rage)|
 
 ```bash
-dpr_simulator --to-hit 1d20A+7 --weapon-details "1d8+8" "1d8+8"
+dpr_simulator --to-hit "1d20[kh2]+7" --weapon-details "1d8+6" "1d8+6"
 ```
 
 ---
 
 ## 2H Barbarian
 
-Starting feat: [Great Weapon Master](http://dnd5e.wikidot.com/feat:great-weapon-master)
-
 |Feature|Value|
 |:---|:---:|
 |Level 4 ASI|+2 STR|
 |Weapon|Greastsword (2d6)|
-|Hit bonus|2 (+4 STR, +3 PROF, -5 GWM)|
-|Damage modifier|+16 (+4 STR, +2 rage, +10 GWM)|
+|Hit bonus|7 (+4 STR, +3 PROF)|
+|Damage modifier|+6 (+4 STR, +2 rage)|
 
 ```bash
-dpr_simulator --to-hit 1d20A+2 --weapon-details "2d6+16" "2d6+16"
+dpr_simulator --to-hit "1d20[kh2]+7" --weapon-details "2d6+6" "2d6+6"
 ```
 
-Starting feat: [Great Weapon Master](http://dnd5e.wikidot.com/feat:great-weapon-master)
 
 |Feature|Value|
 |:---|:---:|
-|Level 4 ASI|[Polearm master](http://dnd5e.wikidot.com/feat:polearm-master)|
+|Level 4 ASI|[Great Weapon Master](http://dnd2024.wikidot.com/feat:great-weapon-master)|
 |Weapon|Greastsword (2d6)|
-|Hit bonus|1 (+3 STR, +3 PROF, -5 GWM)|
-|Damage modifier|+15 (+3 STR, +2 rage, +10 GWM)|
+|Hit bonus|6 (+3 STR, +3 PROF)|
+|Damage modifier|+8 (+3 STR, +2 rage, +3 GWM)|
+
+```bash
+dpr_simulator --to-hit "1d20[kh2]+6" --weapon-details "2d6+8" "2d6+8"
+```
+
+|Feature|Value|
+|:---|:---:|
+|Level 4 ASI|[Polearm master](http://dnd2024.wikidot.com/feat:polearm-master)|
+|Weapon|Glaive (1d10)|
+|Hit bonus|6 (+3 STR, +3 PROF)|
+|Damage modifier|+5 (+3 STR, +2 rage)|
 
 ```bash
 # First round - Bonus Action to Rage
-dpr_simulator --to-hit 1d20A+1 --weapon-details "1d10+15" "1d10+15"
+dpr_simulator --to-hit "1d20[kh2]+6" --weapon-details "1d10+5" "1d10+5"
 
 # Subsequent rounds - Bonus Action to attack
-dpr_simulator --to-hit 1d20A+1 --weapon-details "1d10+15" "1d10+15" "1d4+15"
+dpr_simulator --to-hit "1d20[kh2]+6" --weapon-details "1d10+5" "1d10+5" "1d4+5"
 ```
 
 ---
 
 ## Dual-wielding Barbarian
 
-Starting feat: [Dual Wielder](http://dnd5e.wikidot.com/feat:dual-wielder)
-
 |Feature|Value|
 |:---|:---:|
 |Level 4 ASI|+2 STR|
-|Weapon|Longsword (1d8), Longsword (1d8)|
-|Hit bonus|7 (+4 STR, +3 PROF)|
+|Weapon|Shortsword (1d6), Shortsword (1d6)|
+|Hit bonus|6 (+4 STR, +3 PROF)|
 |Damage modifier|MH +6 (+4 STR, +2 rage), OH +2 (+2 rage)|
 
 ```bash
 # First round - Bonus Action to Rage
-dpr_simulator --to-hit "1d20A+7" --weapon-details "1d8+6" "1d8+6"
+dpr_simulator --to-hit "1d20[kh2]+7" --weapon-details "1d6+6" "1d6+6"
 
 # Subsequent rounds - Bonus Action to attack
-dpr_simulator --to-hit "1d20A+7" --weapon-details "1d8+6" "1d8+6" "1d8+2"
+dpr_simulator --to-hit "1d20[kh2]+7" --weapon-details "1d6+6" "1d6+6" "1d6+2"
 ```
-
-Starting feat: [Fighting Initiate](http://dnd5e.wikidot.com/feat:fighting-initiate) (Two-Weapon Fighting)
 
 |Feature|Value|
 |:---|:---:|
-|Level 4 ASI|+2 STR|
-|Weapon|Longsword (1d8), Shortsword (1d6)|
-|Hit bonus|7 (+4 STR, +3 PROF)|
-|Damage modifier|MH +6 (+4 STR, +2 rage), OH +6 (+4 STR, +2 rage)|
-
-
-```bash
-# First round - Bonus Action to Rage
-dpr_simulator --to-hit "1d20A+7" --weapon-details "1d8+6" "1d8+6"
-
-# Subsequent rounds - Bonus Action to attack
-dpr_simulator --to-hit "1d20A+7" --weapon-details "1d8+6" "1d8+6" "1d6+6"
-```
-
-Starting feat: [Dual Wielder](http://dnd5e.wikidot.com/feat:dual-wielder)
-
-|Feature|Value|
-|:---|:---:|
-|Level 4 ASI|[Fighting Initiate](http://dnd5e.wikidot.com/feat:fighting-initiate) (Two-Weapon Fighting)|
-|Weapon|Longsword (1d8), Longsword (1d8)|
+|Level 4 ASI|[Dual Wielder](http://dnd2024.wikidot.com/feat:dual-wielder)|
+|Weapon|Shortsword (1d6), Shortsword (1d6)|
 |Hit bonus|6 (+3 STR, +3 PROF)|
-|Damage modifier|MH +5 (+3 STR, +2 rage), OH +5 (+3 STR, +2 rage)|
+|Damage modifier|MH +5 (+3 STR, +2 rage), OH +2 (+2 rage)|
 
 ```bash
 # First round - Bonus Action to Rage
-dpr_simulator --to-hit "1d20A+6" --weapon-details "1d8+5" "1d8+5"
+dpr_simulator --to-hit "1d20[kh2]+6" --weapon-details "1d6+5" "1d6+5" "1d6+2"
 
 # Subsequent rounds - Bonus Action to attack
-dpr_simulator --to-hit "1d20A+6" --weapon-details "1d8+5" "1d8+5" "1d8+5"
+dpr_simulator --to-hit "1d20[kh2]+6" --weapon-details "1d8+5" "1d8+5" "1d6+2" "1d6+2"
 ```
 
 ---
@@ -125,16 +109,15 @@ dpr_simulator --to-hit "1d20A+6" --weapon-details "1d8+5" "1d8+5" "1d8+5"
 For set ups which use Bonus Action to attack, shown as `First Round / Subsequent Rounds` as the first round requires bonus action to Rage.
 
 |Build|Target AC<br />12|<br />14|<br />16|<br />18|<br />20|
-|:---:|:---:|:---:|:---:|:---:|:---:|
-|1H|24.88|23.63|21.88|19.62|16.87|
-|2H (GWM)|38.04|33.44|27.95|21.49|14.1|
-|2H (GWM + PAM), round 1|31.82|27.30|21.97|15.84|8.86|
-|2H (GWM + PAM), round 2+|45.19|38.76|31.16|22.41|12.44|
-|Dual wielding (DW), round 1|21.04|19.98|18.52|16.63|14.32|
-|Dual wielding (DW), round 2+|27.71|26.34|24.44|21.94|18.92|
-|Dual wielding (TWF), round 1|21.03|19.99|18.51|16.63|14.32|
-|Dual wielding (TWF), round 2+|30.50|28.98|26.84|24.09|20.74|
-|Dual wielding (DW + TWF), round 1|18.69|17.54|16.05|14.13|11.85|
-|Dual wielding (DW + TWF), round 2+|28.04|26.34|24.05|21.19|17.77|
+|:---|:---:|:---:|:---:|:---:|:---:|
+|1H|22.1|21.7|20.9|19.7|17.7|
+|2H|21.8|21.5|20.8|19.6|17.9|
+|2H (GWM)|25.6|25.0|23.9|22.2|19.7|
+|2H (PAM), round 1|22.2|21.7|20.7|19.1|16.8|
+|2H (PAM), round 2+|30.0|29.2|27.8|25.7|22.6|
+|Dual wielding, round 1|19.8|19.5|18.8|17.6|15.9|
+|Dual wielding, round 2+|25.8|25.3|24.4|22.9|20.7|
+|Dual wielding (DW), round 1|23.6|23.0|21.9|20.3|17.8|
+|Dual wielding (DW), round 2+|31.8|31.0|29.5|27.3|24.0|
 
 ---
