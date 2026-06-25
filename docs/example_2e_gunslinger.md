@@ -39,16 +39,16 @@ The rotation here assumes a single shot per round, with some combination of fein
 
 ```bash
 # Regular ammo
-dpr_simulator --use-pf2e-criticals --ac-targets 28 --to-hit "1d20+20+3" --weapon-details "2f6~10+4"
+dpr_simulator --use-pf2e-criticals --ac-targets 28 --to-hit "1d20+20+3" --weapon-details "2d6[fatal10]+4"
 
 # Specialist ammo
-dpr_simulator --use-pf2e-criticals --ac-targets 28 --to-hit "1d20+20+3" --weapon-details "2f6~10,2d4+4"
+dpr_simulator --use-pf2e-criticals --ac-targets 28 --to-hit "1d20+20+3" --weapon-details "2d6[fatal10],2d4+4"
 
 # Regular ammo, Off-guard, no Frightened
-dpr_simulator --use-pf2e-criticals --ac-targets 28 --to-hit "1d20+20+2" --weapon-details "2f6~10+4"
+dpr_simulator --use-pf2e-criticals --ac-targets 28 --to-hit "1d20+20+2" --weapon-details "2d6[fatal10]+4"
 
 # Regular ammo, no AC debuffs
-dpr_simulator --use-pf2e-criticals --ac-targets 28 --to-hit "1d20+20" --weapon-details "2f6~10+4"
+dpr_simulator --use-pf2e-criticals --ac-targets 28 --to-hit "1d20+20" --weapon-details "2d6[fatal10]+4"
 ```
 
 ---
@@ -76,8 +76,19 @@ Which is extremely optimistic. Will report the raw numbers, and then a 3-round a
   * +3 Weapon specialization (Untyped bonus)
 
 ```bash
-dpr_simulator --use-pf2e-criticals --ac-targets 28 --to-hit "1d20+20+2" "1d20+20+2" --weapon-details "2f6~10+4"
+dpr_simulator --use-pf2e-criticals --ac-targets 28 --to-hit "1d20+20+2" "1d20+20+2" --weapon-details "2d6[fatal10]+4"
 ```
+
+```bash
+# Round 1, 2 action fire, 1 action reload
+dpr_simulator --use-pf2e-criticals --ac-targets 28 --to-hit "1d20+20+2" "1d20+20+2" --weapon-details "2d6[fatal10]+4"
+
+# Round 2, 1 action reload, 2 action fire
+dpr_simulator --use-pf2e-criticals --ac-targets 28 --to-hit "1d20+20+2" "1d20+20+2" --weapon-details "2d6[fatal10]+4"
+
+# Round 3, 2 action reload - nothing happens
+```
+
 
 ---
 
@@ -109,7 +120,7 @@ Assuming a character with +2 in STR, and using a [Shortsword](https://2e.aonprd.
   * +2 STR
 
 ```bash
-dpr_simulator --use-pf2e-criticals --ac-targets 28 --to-hit "1d20+20" "1d20+18-4" --weapon-details "2f6~10+4" "2d6+2"
+dpr_simulator --use-pf2e-criticals --ac-targets 28 --to-hit "1d20+20" "1d20+18-4" --weapon-details "2d6[fatal10]+4" "2d6+2"
 ```
 
 ---
@@ -174,15 +185,15 @@ dpr_simulator --use-pf2e-criticals --ac-targets 28 --to-hit "1d20+20" "1d20+20-5
 
 |Build|Considerations|Hits per round|Crits per round|Damage per round|
 |:---|:---|:---:|:---:|:---:|
-|[Pistol twirl](#pistol-twirl-build)||0.75|0.25|14.37|
-|[Pistol twirl](#pistol-twirl-build)|Special ammo|0.75|0.25|19.33|
-|[Pistol twirl](#pistol-twirl-build)|Off-guard, not frightened|0.70|0.20|12.61|
-|[Pistol twirl](#pistol-twirl-build)|No debuffs on target AC|0.60|0.10|9.04|
-|[Paired shots](#paired-shots-build)||1.4|0.40|25.21|
-|[Paired shots](#paired-shots-build)|3 round average|0.93|0.27|16.81|
-|[Drifter build](#sword-and-pistol-build)||0.95|0.15|12.67|
-|[Rogue](#rogue)||0.60|0.10|14.00|
-|[Fighter](#fighter)|1 attack|0.60|0.10|11.21|
-|[Fighter](#fighter)|2 attacks|1.00|0.15|18.40|
+|[Pistol twirl](#pistol-twirl-build)||0.80|0.30|14.4|
+|[Pistol twirl](#pistol-twirl-build)|Special ammo|0.80|0.30|18.7|
+|[Pistol twirl](#pistol-twirl-build)|Off-guard, not frightened|0.75|0.25|12.6|
+|[Pistol twirl](#pistol-twirl-build)|No debuffs on target AC|0.65|0.15|9.1|
+|[Paired shots](#paired-shots-build)||1.50|0.50|25.2|
+|[Paired shots](#paired-shots-build)|3 round average|1.00|0.33|16.8|
+|[Drifter build](#sword-and-pistol-build)||1.00|0.20|11.6|
+|[Rogue](#rogue)||0.65|0.15|12.5|
+|[Fighter](#fighter)|1 attack|0.65|0.15|10.5|
+|[Fighter](#fighter)|2 attacks|1.05|0.20|16.2|
 
 ---

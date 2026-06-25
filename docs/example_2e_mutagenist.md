@@ -8,7 +8,7 @@ The new Mutagenist looks like a viable melee combatant with the remastered [Best
 
 Assuming a start with +3 STR, bumping to +4 at Level 5, and +4.5 at Level 10. Will be using the new [Bestial Mutagen](https://2e.aonprd.com/Equipment.aspx?ID=3315) as appropriate by level, which is factored into the table below. Going fully into strength might not be the best way to build a character, but it will be the highest DPR way so using it here.
 
-Alchemists follow the [Martial/Trained](./example_2e_baseline.md) progression, but it is re-written here due to the greater item bonuses to hit from [Bestial Mutagen](https://2e.aonprd.com/Equipment.aspx?ID=3315).
+Alchemists follow the [Martial/Trained](./example_2e_baseline.md) progression, but they get access to greater item bonuses from [Bestial Mutagen](https://2e.aonprd.com/Equipment.aspx?ID=3315), although a lower STR score than the martial.
 
 |Level|STR|Proficiency bonus|Item bonus|Total attack|Damage|Notes|
 |:---:|:---:|:---:|:---:|:---:|:---:|:---:|
@@ -19,11 +19,13 @@ Alchemists follow the [Martial/Trained](./example_2e_baseline.md) progression, b
 |5|4|2|2|13|`2d8+4`||
 |6|4|2|2|14|`2d8+4`||
 |7|4|4|2|17|`2d8+4`||
-|8|4|4|2|18|`2d10~10+4`|`Mutant Physique` feat, die size increases and gains `Deadly d10`|
-|9|4|4|2|19|`2d10~10+4`||
-|10|4|4|2|20|`2d10~10+4`|Ability score increase, but only to 4.5|
-|11|4|4|3|22|`3d12~12+4`|`Bestial Mutagen (Greater)`, +3 item bonus|
-|12|4|4|3|23|`3d12~12+4`||
+|8|4|4|2|18|`2d10[deadly10]+4`|`Mutant Physique` feat, die size increases and gains `Deadly d10`|
+|9|4|4|2|19|`2d10[deadly10]+4`||
+|10|4|4|2|20|`2d10[deadly10]+4`|Ability score increase, but only to 4.5|
+|11|4|4|3|22|`3d12[deadly12]+4`|`Bestial Mutagen (Greater)`, +3 item bonus|
+|12|4|4|3|23|`3d12[deadly12]+4`||
+
+<br />
 
 <details>
 <summary>Attack strategy</summary>
@@ -32,41 +34,44 @@ A quick comparison of going for 2x Jaws attacks, or 1x Jaws, 1x Claws while unde
 
 * STR 4
 * To hit = +4 (STR) +5 (LEVEL) +2 (TRAINED) +2 (MUTAGEN)
-* Using a `Beastial Mutagen (moderate)` as provided in **Player Core 2** (not yet on [Archives of Nethys](https://2e.aonprd.com/)).
-
-Jaws & claws:
+* Using a `Beastial Mutagen (moderate)` as provided in **Player Core 2**.
 
 ```bash
-dpr_simulator --use-pf2e-criticals --ac-targets 14 16 18 20 22 24 --to-hit "1d20+13" "1d20+9" --weapon-details "2d8+4" "2d6+4"
+# Jaws & claws
+dpr_simulator --use-pf2e-criticals --ac-targets 20 21 22 --to-hit "1d20+13" "1d20+13-4" --weapon-details "2d8+4" "2d6+4"
+
+# Double bite
+dpr_simulator --use-pf2e-criticals --ac-targets 20 21 22 --to-hit "1d20+13" "1d20+13-5" --weapon-details "2d8+4"
 ```
 
-Using bite twice
-
-```bash
-dpr_simulator --use-pf2e-criticals --ac-targets 14 16 18 20 22 24 --to-hit "1d20+13" "1d20+8" --weapon-details "2d8+4"
-```
-
-|Build|Target AC<br />14|<br />16|<br />18|<br />20|<br />22|<br />24|
-|:---|:---:|:---:|:---:|:---:|:---:|:---:|
-|Mutagenist (jaws & claws)|28.53|24.41|19.60|16.44|12.75|11.00|
-|Mutagenist (jaws only)|29.25|24.71|19.50|16.89|12.99|11.05|
+|Build|AC20|AC21|AC22|
+|:---|:---:|:---:|:---:|
+|Jaws & claws|13.93|12.23|10.56|
+|Double bite|14.15|12.44|10.70|
 
 So for max DPR, double-Jaws is the way to go but the different is less than 1 DPR.
 
 </details>
 
+<br />
+
 ```bash
-ac_array=(16 17 18 21 22 24 25 27 28 30 31 33)
-hit_array=(7 8 10 11 13 14 17 18 19 20 22 23)
-dmg_array=("1d6+3" "1d6+3" "2d8+3" "2d8+3" "2d8+4" "2d8+4" "2d8+4" "2d10~10+4" "2d10~10+4" "2d10~10+4" "3d12~12+4" "3d12~12+4")
+AC_ARRAY=( 16 17 18 21 22 24 25 27 28 30 31 33)
+HIT_ARRAY=( 7 8 10 11 13 14 17 18 19 20 22 23)
+DMG_ARRAY=(
+    "1d6+3" "1d6+3"                                          # Level 1 - 2
+    "2d8+3" "2d8+3" "2d8+4" "2d8+4" "2d8+4"                  # Level 3 - 7
+    "2d10[deadly10]+4" "2d10[deadly10]+4" "2d10[deadly10]+4" # Level 8 - 10
+    "3d12[deadly12]+4" "3d12[deadly12]+4"                    # Level 11 - 12
+)
 
 for i in {0..11};
 do
     dpr_simulator --use-pf2e-criticals \
-        --ac-targets ${ac_array[$i]} \
-        --to-hit "1d20+${hit_array[$i]}" "1d20+${hit_array[$i]}-5" \
-        --weapon-details ${dmg_array[$i]} \
-        -o resources/Alchemist_$(($i+1)).parquet
+        --ac-targets ${AC_ARRAY[$i]} \
+        --to-hit "1d20+${HIT_ARRAY[$i]}" "1d20+${HIT_ARRAY[$i]}-5" \
+        --weapon-details ${DMG_ARRAY[$i]} \
+        -o resources/Alchemist.$(($i+1)).parquet
 done
 ```
 
@@ -96,17 +101,17 @@ Fighters follow the [Martial/Expert progression](./example_2e_baseline.md).
 |12|25|`3d8+9`|[Striking Rune (Greater)](https://2e.aonprd.com/Equipment.aspx?ID=2829), Weapon Specialisation, +4 damage for Legendary proficiency|
 
 ```bash
-ac_array=(16 17 18 21 22 24 25 27 28 30 31 33)
-hit_array=(9 11 12 13 16 17 18 19 21 23 24 25)
-dmg_array=("1d8+4" "1d8+4" "1d8+4" "2d8+4" "2d8+4" "2d8+4" "2d8+7" "2d8+7" "2d8+7" "2d8+8" "2d8+8" "3d8+9")
+AC_ARRAY=( 16 17 18 21 22 24 25 27 28 30 31 33)
+HIT_ARRAY=( 9 11 12 13 16 17 18 19 21 23 24 25)
+DMG_ARRAY=("1d8+4" "1d8+4" "1d8+4" "2d8+4" "2d8+4" "2d8+4" "2d8+7" "2d8+7" "2d8+7" "2d8+8" "2d8+8" "3d8+9")
 
 for i in {0..11};
 do
     dpr_simulator --use-pf2e-criticals \
-        --ac-targets ${ac_array[$i]} \
-        --to-hit "1d20+${hit_array[$i]}" "1d20+${hit_array[$i]}-5" \
-        --weapon-details ${dmg_array[$i]} \
-        -o resources/Fighter_$(($i+1)).parquet
+        --ac-targets ${AC_ARRAY[$i]} \
+        --to-hit "1d20+${HIT_ARRAY[$i]}" "1d20+${HIT_ARRAY[$i]}-5" \
+        --weapon-details ${DMG_ARRAY[$i]} \
+        -o resources/Fighter.$(($i+1)).parquet
 done
 ```
 
@@ -138,17 +143,17 @@ Barbarians follow the [Martial/Trained progression](./example_2e_baseline.md).
 |12|23|`3d8+11`|[Striking Rune (Greater)](https://2e.aonprd.com/Equipment.aspx?ID=2829)|
 
 ```bash
-ac_array=(16 17 18 21 22 24 25 27 28 30 31 33)
-hit_array=(7 9 10 11 14 15 16 17 19 21 22 23)
-dmg_array=("1d8+8" "1d8+8" "1d8+8" "2d8+8" "2d8+8" "2d8+8" "2d8+10" "2d8+10" "2d8+10" "2d8+11" "2d8+11" "3d8+11")
+AC_ARRAY=( 16 17 18 21 22 24 25 27 28 30 31 33)
+HIT_ARRAY=( 7 9 10 11 14 15 16 17 19 21 22 23)
+DMG_ARRAY=("1d8+8" "1d8+8" "1d8+8" "2d8+8" "2d8+8" "2d8+8" "2d8+10" "2d8+10" "2d8+10" "2d8+11" "2d8+11" "3d8+11")
 
 for i in {0..11};
 do
     dpr_simulator --use-pf2e-criticals \
-        --ac-targets ${ac_array[$i]} \
-        --to-hit "1d20+${hit_array[$i]}" "1d20+${hit_array[$i]}-5" \
-        --weapon-details ${dmg_array[$i]} \
-        -o resources/Barbarian_$(($i+1)).parquet
+        --ac-targets ${AC_ARRAY[$i]} \
+        --to-hit "1d20+${HIT_ARRAY[$i]}" "1d20+${HIT_ARRAY[$i]}-5" \
+        --weapon-details ${DMG_ARRAY[$i]} \
+        -o resources/Barbarian.$(($i+1)).parquet
 done
 ```
 
@@ -156,71 +161,78 @@ done
 
 ## Summary
 
+Pull in the STR-based Druid from the [Druid anaylsis](./example_2e_druid.md#str-based-animal-build) for another comparison point.
+
 ```python
-import os
 import glob
 import polars as pl
-import plotly.express as px
 
-buffer = []
-for file_name in glob.glob('resources/*.parquet'):
-    file_stub, _ = os.path.splitext(file_name)
-    pc_class, pc_level = file_stub.split('_')
-    pc_class = os.path.split(pc_class)[-1]
-    buffer.append(
+def parse_input(input_file: str) -> pl.DataFrame:
+    return (
         pl
-        .scan_parquet(file_name)
+        .scan_parquet(input_file)
+        .with_columns(File=pl.lit(input_file))
         .with_columns(
-            Class=pl.lit(pc_class),
-            Level=pl.lit(pc_level).cast(pl.Int32)
+            Class=pl.col('File').str.extract(r'resources/(\w+)\.', 1),
+            Level=pl.col('File').str.extract(r'\.(\d+)\.', 1).cast(int)
         )
+        .select('Iteration', 'Target_AC', 'Number_hits', 'Number_crits', 'Total_damage', 'Class', 'Level')
         .collect()
     )
 
-df = pl.concat(buffer)
+input_data = [parse_input(input_file) for input_file in glob.glob('resources/*.parquet')]
+rename_map = 
+
+df = (
+    pl
+    .concat(input_data, how='vertical')
+    .filter(~pl.col('Class').is_in(['Druid_caster', 'Druid_animal'])) # Drop the unwanted Druid details
+    .with_columns(pl.col('Class').replace({'Druid_STR': 'Druid'}))
+)
 
 (
     df
-    .with_columns(
-        hit_mask=pl.col('Number_hits').gt(0)
-    )
     .group_by(['Class', 'Level'])
     .agg(
-        pl.col('Total_damage').median().alias('Median_damage'),
-        (pl.col('hit_mask').sum()/pl.col('Number_hits').count()*100).alias('Hit_perc')
+        Hit=pl.col('Number_hits').mean(),
+        Damage=pl.col('Total_damage').mean(),
     )
-    .pivot(index='Level', on='Class', values=['Hit_perc', 'Median_damage'])
+    .pivot(index='Level', on='Class', values=['Hit', 'Damage'])
     .sort('Level', descending=False)
 )
-
-# View the distribution for a single hit, non-critical
-plot_df = (
-    df
-    .filter(
-        pl.col('Number_hits').eq(1).over(['Level', 'Class']),
-        pl.col('Number_crits').eq(0)
-    )
-)
-
-fig = px.box(plot_df, x='Level', y='Total_damage', color='Class', points=False)
-fig.write_image('images/example_2e_mutagenist.png')
 ```
 
-|Level|Alchemist<br />Hit chance|<br />DPR|Fighter<br />Hit chance|<br />DPR|Barbarian<br />Hit chance|<br />DPR|
-|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-|1|74.0|7|83.5|11|73.9|13|
-|2|74.0|7|87.5|12|79.0|14|
-|3|79.0|14|87.5|12|79.0|14|
-|4|68.5|11|78.9|15|68.5|16|
-|5|74.0|13|87.5|19|79.0|19|
-|6|68.6|12|83.5|16|73.9|17|
-|7|79.0|15|83.5|20|74.0|19|
-|8|74.0|15|79.0|18|68.5|18|
-|9|74.0|15|83.5|20|74.0|19|
-|10|68.5|14|83.5|21|74.0|20|
-|11|73.9|24|83.5|21|74.1|20|
-|12|68.5|22|79.0|25|68.5|23|
+|Level|Hit<br />Alchemist|<br />Druid|<br />Barbarian|<br />Fighter|Damage<br />Alchemist|<br />Druid|<br />Barbarian|<br />Fighter|
+|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+|1|0.95|0.85|0.95|1.15|7.15|6.2|13.8|11.9|
+|2|0.95|0.95|1.05|1.25|7.15|7.2|15.6|13.2|
+|3|1.05|1.15|1.05|1.25|11.2|10.0|15.6|13.2|
+|4|0.85|0.95|0.85|1.05|8.0|7.4|12.8|12.4|
+|5|0.95|1.05|1.05|1.25|10.7|13.7|17.4|15.9|
+|6|0.85|0.95|0.95|1.15|9.0|11.8|15.1|14.2|
+|7|1.05|0.95|0.95|1.15|12.4|16.2|17.3|18.3|
+|8|0.95|0.85|0.85|1.05|13.7|13.7|14.7|16.2|
+|9|0.95|0.85|0.95|1.15|13.8|13.6|17.3|18.4|
+|10|0.85|0.85|0.95|1.15|11.2|13.6|18.4|19.7|
+|11|0.95|1.05|0.95|1.15|18.4|16.0|18.4|19.8|
+|12|0.85|0.95|0.85|1.05|14.5|13.4|16.5|20.4|
 
-![](../images/example_2e_mutagenist.png)
+```python
+import plotly.express as px
+
+plt = df.group_by(['Level', 'Class']).agg(Damage=pl.col('Total_damage').mean())
+
+fig = px.bar(
+    plt,
+    x='Level',
+    y='Damage',
+    color='Class',
+    barmode='group',
+)
+
+fig.write_image('img/example_2e_mutagenist.svg')
+```
+
+![](../img/example_2e_mutagenist.svg)
 
 ---
