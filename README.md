@@ -148,10 +148,11 @@ In practice this *mostly* just means that it is easier to score critical hits ag
 
 Since I made this tool for myself, there are a few questions I was interested in answering with it:
 
+1. [Pathfinder 2E - Baseline of hit rates across different martial types](./docs/example_2e_baseline.md)
 1. [Pathfinder 2E - Comparing Gunslinger builds against a rogue and fighter](./docs/example_2e_gunslinger.md)
-1. [Pathfinder 2E - Comparing different melee builds](./docs/example_2e_melee.md)
+1. [Pathfinder 2E - Comparing Fighters and Barbarians](./docs/example_2e_barb_fighter.md)
+1. [Pathfinder 2E - Comparing wildshape Druids to caster option](./docs/example_2e_druid.md)
 1. [Pathfinder 2E - Comparing the remastered Mutagenist Alchemist to martials](./docs/example_2e_mutagenist.md)
-1. [D&D 5E - Dual-wield evaluation for a Barbarian](./docs/example_5e_barbarian.md)
 
 ---
 
