@@ -1,10 +1,22 @@
-use crate::{HitResult, ModifierBehaviour};
+use crate::{ApplyTrait, RollKind, Ruleset};
 
 /// A representation of the fixed damage element of an attack equation.
 #[derive(Debug, PartialEq)]
 pub struct StaticModifier {
     value: i32,
-    mod_behaviour: ModifierBehaviour,
+    mod_trait: ApplyTrait,
+    rule_set: Ruleset,
+}
+
+// Useful for unit testing, don't need for real implementation
+impl Default for StaticModifier {
+    fn default() -> Self {
+        Self {
+            value: 1,
+            mod_trait: ApplyTrait::Standard,
+            rule_set: Ruleset::DND5e,
+        }
+    }
 }
 
 impl StaticModifier {
@@ -13,44 +25,57 @@ impl StaticModifier {
     /// # Examples
     ///
     /// ```
-    /// let my_modifier = StaticModifier::new(5, ModifierBehaviour::OnHit);
+    /// let my_modifier = StaticModifier::new(5, ApplyTrait::Standard);
     /// ```
-    pub fn new(value: i32, mod_behaviour: ModifierBehaviour) -> StaticModifier {
+    pub fn new(value: i32, mod_trait: ApplyTrait, rule_set: Ruleset) -> StaticModifier {
         StaticModifier {
             value,
-            mod_behaviour,
+            mod_trait,
+            rule_set,
         }
     }
 
-    /// Assess the value of the modifier for an instance of application.
-    ///
-    /// Accepts an optional hit result for modulating the return result based
-    /// on the StaticModifier behaviour flag. If None is provided, the value
-    /// is returned unmodified. The main use case for this is for instances
-    /// associated with hit rolls, where as value modification is most likely
-    /// to be required for damage rolls.
-    ///
-    /// # Examples
-    /// ```
-    /// let my_modifier = StaticModifier::new(5, ModifierBehaviour::OnHit);
-    ///
-    /// let result = my_modifier.evaluate_result(None);
-    /// let result = my_modifier.evaluate_result(Some(&HitResult::Miss));
-    /// ```
-    pub fn evaluate_result(&self, hit_condition: Option<&HitResult>) -> i32 {
-        if let Some(hit_result) = hit_condition {
-            match (&self.mod_behaviour, hit_result) {
-                (&ModifierBehaviour::CanCritical, &HitResult::CriticalHit) => self.value * 2,
-                (&ModifierBehaviour::CanCritical, &HitResult::Hit) => self.value,
-                (&ModifierBehaviour::OnCritical, &HitResult::CriticalHit) => self.value,
-                (&ModifierBehaviour::OnHit, &HitResult::Hit | &HitResult::CriticalHit) => {
+    fn roll_standard(&self) -> i32 {
+        // Catch cases where a regular would be ignored, otherwise return a standard roll
+        match self.mod_trait {
+            ApplyTrait::OnCriticalOnly {
+                doubles_with_crit: _,
+            } => 0,
+            ApplyTrait::OnMissOnly => 0,
+            _ => self.value,
+        }
+    }
+
+    fn roll_miss(&self) -> i32 {
+        // Catch case where roll occurs on miss, otherwise return 0
+        match self.mod_trait {
+            ApplyTrait::OnMissOnly => self.value,
+            _ => 0,
+        }
+    }
+
+    fn roll_critical(&self) -> i32 {
+        match self.mod_trait {
+            ApplyTrait::OnMissOnly => 0,
+            ApplyTrait::OnCriticalOnly { doubles_with_crit } => {
+                if doubles_with_crit {
+                    self.value * 2
+                } else {
                     self.value
                 }
-                (&ModifierBehaviour::OnMiss, _) => self.value,
-                (_, _) => 0,
             }
-        } else {
-            self.value
+            _ => match self.rule_set {
+                Ruleset::DND5e => self.value,
+                Ruleset::PF2e => self.value * 2,
+            },
+        }
+    }
+
+    pub fn roll(&self, kind: RollKind) -> i32 {
+        match kind {
+            RollKind::Normal => self.roll_standard(),
+            RollKind::Critical => self.roll_critical(),
+            RollKind::Miss => self.roll_miss(),
         }
     }
 }
@@ -61,139 +86,261 @@ mod tests {
 
     #[test]
     fn test_constructor() {
-        let exp_value = StaticModifier {
-            value: -2,
-            mod_behaviour: ModifierBehaviour::OnHit,
-        };
-        let obs_value = StaticModifier::new(-2, ModifierBehaviour::OnHit);
+        let exp_value = StaticModifier::default();
+        let obs_value = StaticModifier::new(1, ApplyTrait::Standard, Ruleset::DND5e);
 
         assert_eq!(exp_value, obs_value);
     }
 
-    #[test]
-    fn test_evaluate_result_none() {
-        let mod_options: Vec<ModifierBehaviour> = vec![
-            ModifierBehaviour::CanCritical,
-            ModifierBehaviour::OnCritical,
-            ModifierBehaviour::OnHit,
-            ModifierBehaviour::OnMiss,
-        ];
-
-        for mod_option in mod_options {
-            let my_modifier = StaticModifier::new(5, mod_option);
-            let obs_value = my_modifier.evaluate_result(None);
-            assert_eq!(5, obs_value);
-        }
-    }
-
-    // region: `evaluate_result()` ModifierBehaviour::OnHit tests
+    // region: StaticModifier::roll_standard tests
 
     #[test]
-    fn test_evaluate_result_onhit_hit() {
-        let my_modifier = StaticModifier::new(5, ModifierBehaviour::OnHit);
-        let obs_value = my_modifier.evaluate_result(Some(&HitResult::Hit));
+    fn test_roll_standard_normal() {
+        let sm = StaticModifier::default();
 
-        assert_eq!(5, obs_value);
+        assert_eq!(1, sm.roll_standard());
     }
 
     #[test]
-    fn test_evaluate_result_onhit_crit() {
-        let my_modifier = StaticModifier::new(5, ModifierBehaviour::OnHit);
-        let obs_value = my_modifier.evaluate_result(Some(&HitResult::CriticalHit));
+    fn test_roll_standard_normal_zero() {
+        let sm = StaticModifier {
+            value: 0,
+            ..StaticModifier::default()
+        };
 
-        assert_eq!(5, obs_value);
+        assert_eq!(0, sm.roll_standard());
     }
 
     #[test]
-    fn test_evaluate_result_onhit_miss() {
-        let my_modifier = StaticModifier::new(5, ModifierBehaviour::OnHit);
-        let obs_value = my_modifier.evaluate_result(Some(&HitResult::Miss));
+    fn test_roll_standard_on_critical_only_double() {
+        let sm = StaticModifier {
+            mod_trait: ApplyTrait::OnCriticalOnly {
+                doubles_with_crit: true,
+            },
+            ..StaticModifier::default()
+        };
 
-        assert_eq!(0, obs_value);
-    }
-
-    // endregion:
-
-    // region: `evaluate_result()` ModifierBehaviour::OnCritical tests
-
-    #[test]
-    fn test_evaluate_result_oncrit_crit() {
-        let my_modifier = StaticModifier::new(5, ModifierBehaviour::OnCritical);
-
-        let obs_value = my_modifier.evaluate_result(Some(&HitResult::CriticalHit));
-        assert_eq!(5, obs_value);
+        assert_eq!(0, sm.roll_standard());
     }
 
     #[test]
-    fn test_evaluate_result_oncrit_hit() {
-        let my_modifier = StaticModifier::new(5, ModifierBehaviour::OnCritical);
+    fn test_roll_standard_on_critical_only_single() {
+        let sm = StaticModifier {
+            mod_trait: ApplyTrait::OnCriticalOnly {
+                doubles_with_crit: false,
+            },
+            ..StaticModifier::default()
+        };
 
-        let obs_value = my_modifier.evaluate_result(Some(&HitResult::Hit));
-        assert_eq!(0, obs_value);
+        assert_eq!(0, sm.roll_standard());
     }
 
     #[test]
-    fn test_evaluate_result_oncrit_miss() {
-        let my_modifier = StaticModifier::new(5, ModifierBehaviour::OnCritical);
+    fn test_roll_standard_on_miss_only() {
+        let sm = StaticModifier {
+            mod_trait: ApplyTrait::OnMissOnly,
+            ..StaticModifier::default()
+        };
 
-        let obs_value = my_modifier.evaluate_result(Some(&HitResult::Miss));
-        assert_eq!(0, obs_value);
+        assert_eq!(0, sm.roll_standard());
     }
 
     // endregion:
 
-    // region: `evaluate_result()` ModifierBehaviour::CanCritical tests
+    // region: StaticModifier::roll_miss()
 
     #[test]
-    fn test_evaluate_result_cancrit_crit() {
-        let my_modifier = StaticModifier::new(5, ModifierBehaviour::CanCritical);
-        let obs_value = my_modifier.evaluate_result(Some(&HitResult::CriticalHit));
+    fn test_roll_miss_standard() {
+        let sm = StaticModifier::default();
 
-        assert_eq!(10, obs_value);
+        assert_eq!(0, sm.roll_miss());
     }
 
     #[test]
-    fn test_evaluate_result_cancrit_hit() {
-        let my_modifier = StaticModifier::new(5, ModifierBehaviour::CanCritical);
-        let obs_value = my_modifier.evaluate_result(Some(&HitResult::Hit));
+    fn test_roll_miss_on_critical_only_double() {
+        let sm = StaticModifier {
+            mod_trait: ApplyTrait::OnCriticalOnly {
+                doubles_with_crit: true,
+            },
+            ..StaticModifier::default()
+        };
 
-        assert_eq!(5, obs_value);
+        assert_eq!(0, sm.roll_miss());
     }
 
     #[test]
-    fn test_evaluate_result_cancrit_miss() {
-        let my_modifier = StaticModifier::new(5, ModifierBehaviour::CanCritical);
-        let obs_value = my_modifier.evaluate_result(Some(&HitResult::Miss));
+    fn test_roll_miss_on_critical_only_single() {
+        let sm = StaticModifier {
+            mod_trait: ApplyTrait::OnCriticalOnly {
+                doubles_with_crit: false,
+            },
+            ..StaticModifier::default()
+        };
 
-        assert_eq!(0, obs_value);
+        assert_eq!(0, sm.roll_miss());
+    }
+
+    #[test]
+    fn test_roll_miss_on_miss_only() {
+        let sm = StaticModifier {
+            mod_trait: ApplyTrait::OnMissOnly,
+            ..StaticModifier::default()
+        };
+
+        assert_eq!(1, sm.roll_miss());
+    }
+
+    #[test]
+    fn test_roll_miss_on_miss_only_zero() {
+        let sm = StaticModifier::new(0, ApplyTrait::OnMissOnly, Ruleset::DND5e);
+
+        assert_eq!(0, sm.roll_miss());
     }
 
     // endregion:
 
-    // region: `evaluate_result()` ModifierBehaviour::OnMiss tests
+    // region: StaticModifier::roll_critical tests
 
     #[test]
-    fn test_evaluate_result_onmiss_crit() {
-        let my_modifier = StaticModifier::new(5, ModifierBehaviour::OnMiss);
-        let obs_value = my_modifier.evaluate_result(Some(&HitResult::CriticalHit));
+    fn test_roll_critical_standard_dnd() {
+        let sm = StaticModifier::default();
 
-        assert_eq!(5, obs_value);
+        assert_eq!(1, sm.roll_critical());
     }
 
     #[test]
-    fn test_evaluate_result_onmiss_hit() {
-        let my_modifier = StaticModifier::new(5, ModifierBehaviour::OnMiss);
-        let obs_value = my_modifier.evaluate_result(Some(&HitResult::Hit));
+    fn test_roll_critical_standard_pf2e() {
+        let sm = StaticModifier {
+            rule_set: Ruleset::PF2e,
+            ..StaticModifier::default()
+        };
 
-        assert_eq!(5, obs_value);
+        assert_eq!(2, sm.roll_critical());
     }
 
     #[test]
-    fn test_evaluate_result_onmiss_miss() {
-        let my_modifier = StaticModifier::new(5, ModifierBehaviour::OnMiss);
-        let obs_value = my_modifier.evaluate_result(Some(&HitResult::Miss));
+    fn test_roll_critical_on_critical_only_double() {
+        let sm = StaticModifier {
+            mod_trait: ApplyTrait::OnCriticalOnly {
+                doubles_with_crit: true,
+            },
+            ..StaticModifier::default()
+        };
 
-        assert_eq!(5, obs_value);
+        assert_eq!(2, sm.roll_critical());
+    }
+
+    #[test]
+    fn test_roll_critical_on_critical_only_single() {
+        let sm = StaticModifier {
+            mod_trait: ApplyTrait::OnCriticalOnly {
+                doubles_with_crit: false,
+            },
+            ..StaticModifier::default()
+        };
+
+        assert_eq!(1, sm.roll_critical());
+    }
+
+    #[test]
+    fn test_roll_critical_on_miss_only() {
+        let sm = StaticModifier {
+            mod_trait: ApplyTrait::OnMissOnly,
+            ..StaticModifier::default()
+        };
+
+        assert_eq!(0, sm.roll_critical());
+    }
+
+    // endregion:
+
+    // region: StaticModifier::roll tests
+
+    #[test]
+    fn test_roll_case_standard_normal() {
+        let sm = StaticModifier::default();
+
+        assert_eq!(1, sm.roll(RollKind::Normal));
+    }
+
+    #[test]
+    fn test_roll_case_standard_on_critical_only() {
+        let sm = StaticModifier {
+            mod_trait: ApplyTrait::OnCriticalOnly {
+                doubles_with_crit: true,
+            },
+            ..StaticModifier::default()
+        };
+
+        assert_eq!(0, sm.roll(RollKind::Normal));
+    }
+
+    #[test]
+    fn test_roll_case_standard_on_miss_only() {
+        let sm = StaticModifier {
+            mod_trait: ApplyTrait::OnMissOnly,
+            ..StaticModifier::default()
+        };
+
+        assert_eq!(0, sm.roll(RollKind::Normal));
+    }
+
+    #[test]
+    fn test_roll_case_miss_standard() {
+        let sm = StaticModifier::default();
+
+        assert_eq!(0, sm.roll(RollKind::Miss));
+    }
+
+    #[test]
+    fn test_roll_case_miss_on_critical_only() {
+        let sm = StaticModifier {
+            mod_trait: ApplyTrait::OnCriticalOnly {
+                doubles_with_crit: true,
+            },
+            ..StaticModifier::default()
+        };
+
+        assert_eq!(0, sm.roll(RollKind::Miss));
+    }
+
+    #[test]
+    fn test_roll_case_miss_on_miss_only() {
+        let sm = StaticModifier {
+            mod_trait: ApplyTrait::OnMissOnly,
+            ..StaticModifier::default()
+        };
+
+        assert_eq!(1, sm.roll(RollKind::Miss));
+    }
+
+    #[test]
+    fn test_roll_case_critical_standard() {
+        let sm = StaticModifier::default();
+
+        assert_eq!(1, sm.roll(RollKind::Critical));
+    }
+
+    #[test]
+    fn test_roll_case_critical_on_critical_only() {
+        let sm = StaticModifier {
+            mod_trait: ApplyTrait::OnCriticalOnly {
+                doubles_with_crit: true,
+            },
+            ..StaticModifier::default()
+        };
+
+        assert_eq!(2, sm.roll(RollKind::Critical));
+    }
+
+    #[test]
+    fn test_roll_case_critical_on_miss_only() {
+        let sm = StaticModifier {
+            mod_trait: ApplyTrait::OnMissOnly,
+            ..StaticModifier::default()
+        };
+
+        assert_eq!(0, sm.roll(RollKind::Critical));
     }
 
     // endregion:

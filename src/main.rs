@@ -25,6 +25,7 @@ fn main() {
         dmg_vector,
         ruleset,
         cli.number_turns,
+        cli.seed,
         cli.n_threads,
     );
 
@@ -82,4 +83,8 @@ struct Cli {
     /// Use Pathfinder 2e rules for critical hits and damage calculation
     #[arg(long, default_value_t = false)]
     use_pf2e_criticals: bool,
+
+    /// Set the seed to dice rolling to a predetermined value (optional)
+    #[arg(long, value_name = "SEED VALUE")]
+    seed: Option<u64>,
 }

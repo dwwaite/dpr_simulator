@@ -2,21 +2,57 @@
 
 Calculating the damage of a wild shape druid is tricky due to the way that the players to-hit bonus can *sometimes* be used in place of the animal form's shape. This comparison is used to look at the difference between three untamed build styles.
 
+1. Caster progression, assuming a cantrip each round.
 1. Dump STR, just rely on the forms bonus.
 1. Pump STR, using whichever bonus is greater at any given time.
-1. Pump STR, use [Form Control] to reduce shape shift spell level and force the use of the STR bonus over the form.
-   1. This seems like a terrible idea, as the players AC and damage will be behind the curve.
-   1. But maybe the higher hit makes up for it?
 
 >At all levels, will use whichever heightened shapeshift form looks like it would do the most damage. Most forms have a lower-damage agile attack but previous testing has shown that this doesn't pan out overall.
 
 >Two attacks per turn - this isn't always going to be realistic since transforming is a 2-action ability but it's constant between builds.
 
->This comparison uses the [armor class progression](./example_2e_mutagenist.md#player-core-mutagenist) determined in the **Mutagenist** analysis, and will pull in the results of that analysis at the end for comparison.
+This comparison uses the [armor class progression](./example_2e_baseline.md) determined in the baseline analysis.
 
 ---
 
-## Forms-only approach
+## Caster baseline
+
+Just a straight caster build using [Gouging Claw](https://2e.aonprd.com/Spells.aspx?ID=1546) each turn.
+
+
+|Level|MOD (WIS)|Proficiency bonus|Total attack|Damage|
+|:---:|:---:|:---:|:---:|:---:|
+|1|4|2|7|`2d6+2`|
+|2|4|2|8|`2d6+2`|
+|3|4|2|9|`3d6+3`|
+|4|4|2|10|`3d6+3`|
+|5|4.5|2|11|`4d6+4`|
+|6|4.5|2|12|`4d6+4`|
+|7|4.5|4|15|`5d6+5`|
+|8|4.5|4|16|`5d6+5`|
+|9|4.5|4|17|`6d6+6`|
+|10|5|4|19|`6d6+6`|
+|11|5|4|20|`7d6+7`|
+|12|5|4|21|`7d6+7`|
+
+```bash
+AC_ARRAY=(16 17 18 21 22 24 25 27 28 30 31 33)
+
+HIT_ARRAY=({7..12} {15..17} {19..21})
+DMG_ARRAY=(2 2 3 3 4 4 5 5 6 6 7 7)
+
+for i in {0..11};
+do
+    dpr_simulator --use-pf2e-criticals \
+        --ac-targets ${AC_ARRAY[$i]} \
+        --to-hit "1d20+${HIT_ARRAY[$i]}" \
+        --weapon-details "${DMG_ARRAY[$i]}d6+${DMG_ARRAY[$i]}" \
+        -o resources/Druid_caster.$((i+1)).parquet
+done
+```
+
+---
+
+## No-STR Animal build
 
 Who needs STR? Just pump that CON and WIS and do other stuff. For level 1, casting a cantrip so assuming max WIS for the starting level.
 
@@ -37,28 +73,28 @@ Who needs STR? Just pump that CON and WIS and do other stuff. For level 1, casti
 
 
 ```bash
-# First and second level, single cantrip
-dpr_simulator --use-pf2e-criticals --ac-targets 16 --to-hit "1d20+7" --weapon-details "2d6+2" -o resources/Druid1_1.parquet
-dpr_simulator --use-pf2e-criticals --ac-targets 17 --to-hit "1d20+8" --weapon-details "2d6+2" -o resources/Druid1_2.parquet
+# First and Second level
+dpr_simulator --use-pf2e-criticals --ac-targets 16 --to-hit "1d20+7" --weapon-details "2d6+2" -o resources/Druid_animal.1.parquet
+dpr_simulator --use-pf2e-criticals --ac-targets 17 --to-hit "1d20+8" --weapon-details "2d6+2" -o resources/Druid_animal.2.parquet
 
 # Third onward
-ac_array=(18 21 22 24 25 27 28 30 31 33)
-hit_array=(9 9 14 14 16 16 18 18 21 21)
-dmg_array=("2d8+1" "2d8+1" "2d8+5" "2d8+5" "2d8+9" "2d8+9" "4d8+7" "4d8+7" "4d8+4" "4d8+4")
+AC_ARRAY=( 18 21 22 24 25 27 28 30 31 33)
+HIT_ARRAY=( 9  9 14 14 16 16 18 18 21 21)
+DMG_ARRAY=("2d8+1" "2d8+1" "2d8+5" "2d8+5" "2d8+9" "2d8+9" "4d8+7" "4d8+7" "4d8+4" "4d8+4")
 
 for i in {0..9};
 do
     dpr_simulator --use-pf2e-criticals \
-        --ac-targets ${ac_array[$i]} \
-        --to-hit "1d20+${hit_array[$i]}" "1d20+${hit_array[$i]}-5" \
-        --weapon-details ${dmg_array[$i]} \
-        -o resources/Druid1_$(($i+3)).parquet
+        --ac-targets ${AC_ARRAY[$i]} \
+        --to-hit "1d20+${HIT_ARRAY[$i]}" "1d20+${HIT_ARRAY[$i]}-5" \
+        --weapon-details ${DMG_ARRAY[$i]} \
+        -o resources/Druid_animal.$(($i+3)).parquet
 done
 ```
 
 ---
 
-## STR-based approach
+## STR-based Animal build
 
 Will occassionally make use of the higher PC to-hit bonus to keep the damage higher. Druids follow the [Non-martial progression](./example_2e_baseline.md), but are offset by the lower primary stat.
 
@@ -66,9 +102,9 @@ I'm unclear on how the [Untamed Form](https://2e.aonprd.com/Spells.aspx?ID=1861)
 
 ```
 When you choose to use your own attack modifier while polymorphed instead of the form's default attack modifier, you gain a +2 status bonus to your attack rolls.
-```
 
-```
+...
+
 If your unarmed attack bonus is higher, you can use it instead.
 ```
 
@@ -85,24 +121,24 @@ I've seen online interpretations where both the `+2 status bonus` is only given 
 |7|[Animal Form](https://2e.aonprd.com/Spells.aspx?ID=1440)|4|2|1|2|16|16|16|`2d8+9`|Spell 4, stronger than [Insect Form](https://2e.aonprd.com/Spells.aspx?ID=1575)|
 |8|[Animal Form](https://2e.aonprd.com/Spells.aspx?ID=1440)|4|2|1|2|17|16|17|`2d8+9`|Spell 4, stronger than [Insect Form](https://2e.aonprd.com/Spells.aspx?ID=1575)|
 |9|[Animal Form](https://2e.aonprd.com/Spells.aspx?ID=1440)|4|2|1|2|18|18|18|`4d8+7`|Spell 5, stronger than [Insect Form](https://2e.aonprd.com/Spells.aspx?ID=1575)|
-|10|[Animal Form](https://2e.aonprd.com/Spells.aspx?ID=1440)|4|2|2|2|20|18|20|`4d8+7`|Spell 5, stronger than [Insect Form](https://2e.aonprd.com/Spells.aspx?ID=1575)|
-|11|[Aerial Form](https://2e.aonprd.com/Spells.aspx?ID=1437)|4|4|2|2|23|21|23|`4d8+4`|Spell 6, only shape available at this rank|
-|12|[Aerial Form](https://2e.aonprd.com/Spells.aspx?ID=1437)|4|4|2|2|24|21|24|`4d8+4`|Spell 6, only shape available at this rank|
+|10|[Animal Form](https://2e.aonprd.com/Spells.aspx?ID=1440)|4.5|2|2|2|20|18|20|`4d8+7`|Spell 5, stronger than [Insect Form](https://2e.aonprd.com/Spells.aspx?ID=1575)|
+|11|[Aerial Form](https://2e.aonprd.com/Spells.aspx?ID=1437)|4.5|4|2|2|23|21|23|`4d8+4`|Spell 6, only shape available at this rank|
+|12|[Aerial Form](https://2e.aonprd.com/Spells.aspx?ID=1437)|4.5|4|2|2|24|21|24|`4d8+4`|Spell 6, only shape available at this rank|
 
 Technically `Animal Form` is still strong at levels 11 and 12, but due to the lower AC I'm ignoring it.
 
 ```bash
-ac_array=(16 17 18 21 22 24 25 27 28 30 31 33)
-hit_array=(6 8 11 12 14 15 16 17 18 20 23 24)
-dmg_array=("1d6+3" "1d6+3" "2d8+1" "2d8+1" "2d8+5" "2d8+5" "2d8+9" "2d8+9" "4d8+7" "4d8+7" "4d8+4" "4d8+4")
+AC_ARRAY=( 16 17 18 21 22 24 25 27 28 30 31 33)
+HIT_ARRAY=( 6  8 11 12 14 15 16 17 18 20 23 24)
+DMG_ARRAY=("1d6+3" "1d6+3" "2d8+1" "2d8+1" "2d8+5" "2d8+5" "2d8+9" "2d8+9" "4d8+7" "4d8+7" "4d8+4" "4d8+4")
 
 for i in {0..11};
 do
     dpr_simulator --use-pf2e-criticals \
-        --ac-targets ${ac_array[$i]} \
-        --to-hit "1d20+${hit_array[$i]}" "1d20+${hit_array[$i]}-5" \
-        --weapon-details ${dmg_array[$i]} \
-        -o resources/Druid2_$(($i+1)).parquet
+        --ac-targets ${AC_ARRAY[$i]} \
+        --to-hit "1d20+${HIT_ARRAY[$i]}" "1d20+${HIT_ARRAY[$i]}-5" \
+        --weapon-details ${DMG_ARRAY[$i]} \
+        -o resources/Druid_STR.$(($i+1)).parquet
 done
 ```
 
@@ -110,69 +146,79 @@ done
 
 ## Summary
 
-Pulling in the Fighter and Barbarian data from the [Mutagenist simulation](./example_2e_mutagenist.md#summary) for comparison.
-
 ```python
 import glob
 import polars as pl
-import plotly.express as px
 
-input_data = []
-for input_file in glob.glob('resources/*.parquet'):
-    input_data.append(
+def parse_input(input_file: str) -> pl.DataFrame:
+    return (
         pl
         .scan_parquet(input_file)
         .with_columns(File=pl.lit(input_file))
         .with_columns(
-            Class=pl.col('File').str.extract(r'resources/(\w+)_', 1).cast(pl.Categorical),
-            Level=pl.col('File').str.extract(r'_(\d+)', 1).cast(int)
+            Class=pl.col('File').str.extract(r'resources/(\w+)\.', 1),
+            Level=pl.col('File').str.extract(r'\.(\d+)\.', 1).cast(int)
         )
         .select('Iteration', 'Target_AC', 'Number_hits', 'Number_crits', 'Total_damage', 'Class', 'Level')
         .collect()
     )
 
-df = pl.concat(input_data, how='vertical')
+input_data = [parse_input(input_file) for input_file in glob.glob('resources/*.parquet')]
+rename_map = {'Druid_caster': 'Caster', 'Druid_animal': 'Animal', 'Druid_STR': 'Animal (STR)'}
+
+df = (
+    pl
+    .concat(input_data, how='vertical')
+    .with_columns(pl.col('Class').replace(rename_map))
+)
 
 (
     df
-    .with_columns(hit_mask=pl.col('Number_hits').gt(0))
     .group_by(['Class', 'Level'])
     .agg(
-        Damage=pl.col('Total_damage').median(),
-        Hit_chance=(pl.col('hit_mask').sum()/pl.col('Number_hits').count())
+        Hit=pl.col('Number_hits').mean(),
+        Damage=pl.col('Total_damage').mean(),
     )
-    .pivot(index='Level', on='Class', values=['Hit_chance', 'Damage'])
+    .pivot(index='Level', on='Class', values=['Hit', 'Damage'])
     .sort('Level', descending=False)
 )
-
-# View the distribution for a single hit, non-critical
-plot_df = (
-    df
-    .filter(
-        pl.col('Number_hits').eq(1).over(['Level', 'Class']),
-        pl.col('Number_crits').eq(0)
-    )
-)
-
-fig = px.box(plot_df, x='Level', y='Total_damage', color='Class', points=False)
-fig.write_image('images/example_2e_druid.png')
 ```
 
-|Level|Druid (form-only)<br />Hit chance|<br />Damage|Druid (STR-based)<br />Hit chance|<br />Damage|Fighter<br />Hit chance|<br />Damage|Barbarian<br />Hit chance|<br />Damage|
-|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-|1|0.60|7|0.68|6|0.83|11|0.74|13|
-|2|0.60|7|0.74|7|0.87|12|0.79|14|
-|3|0.74|10|0.83|13|0.87|12|0.79|14|
-|4|0.56|6|0.74|10|0.79|15|0.69|16|
-|5|0.79|16|0.79|16|0.87|19|0.79|19|
-|6|0.69|13|0.74|14|0.84|16|0.74|17|
-|7|0.74|18|0.74|18|0.84|20|0.74|19|
-|8|0.63|16|0.69|17|0.79|18|0.68|18|
-|9|0.68|24|0.68|24|0.83|20|0.74|19|
-|10|0.56|20|0.68|24|0.84|21|0.74|20|
-|11|0.68|21|0.79|24|0.83|21|0.74|20|
-|12|0.56|17|0.74|22|0.79|25|0.69|23|
+|Level|Hit<br />Caster|<br />Animal (STR)|<br />Animal|Damage<br />Caster|<br />Animal (STR)|<br />Animal|
+|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+|1|0.60|0.85|0.60|4.6|6.2|4.5|
+|2|0.60|0.95|0.60|4.6|7.2|4.6|
+|3|0.60|1.15|0.95|5.9|10.0|7.4|
+|4|0.50|0.95|0.65|4.3|7.4|5.0|
+|5|0.50|1.05|1.05|5.2|13.7|13.7|
+|6|0.45|0.95|0.85|4.8|11.8|9.9|
+|7|0.55|0.95|0.95|6.5|16.2|16.2|
+|8|0.50|0.85|0.75|6.1|13.7|12.4|
+|9|0.450|0.85|0.85|7.0|13.6|13.6|
+|10|0.50|0.85|0.65|7.0|13.6|11.3|
+|11|0.50|1.04|0.85|7.9|16.0|10.7|
+|12|0.45|0.95|0.65|7.3|13.4|9.1|
 
-![](../images/example_2e_druid.png)
+```python
+import plotly.express as px
+
+plt = (
+    df
+    .group_by(['Level', 'Class'])
+    .agg(Damage=pl.col('Total_damage').mean())
+)
+
+fig = px.bar(
+    plt,
+    x='Level',
+    y='Damage',
+    color='Class',
+    barmode='group',
+)
+
+fig.write_image('img/example_2e_druid.svg')
+```
+
+![](../img/example_2e_druid.svg)
 
 ---

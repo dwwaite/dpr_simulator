@@ -70,19 +70,8 @@ ac_array=(16 17 18 21 22 24 25 27 28 30 31 33)
 # Martial/Expert
 hit_array=(9 11 12 13 16 17 18 19 21 23 24 25)
 
-for i in {0..11};
-do
-    dpr_simulator --use-pf2e-criticals --ac-targets ${ac_array[$i]} --to-hit "1d20+${hit_array[$i]}" --weapon-details 0 
-done
-
 # Martial/Trained
 hit_array=(7 9 10 11 14 15 16 17 19 21 22 23)
-
-for i in {0..11};
-do
-    dpr_simulator --use-pf2e-criticals --ac-targets ${ac_array[$i]} --to-hit "1d20+${hit_array[$i]}" --weapon-details 0 
-done
-
 
 # Non-martial
 hit_array=(7 9 10 11 12 13 14 15 17 19 22 23)
@@ -111,8 +100,6 @@ done
 |10|0.70|0.20|0.60|0.10|0.50|0.05|
 |11|0.70|0.20|0.60|0.10|0.60|0.10|
 |12|0.65|0.15|0.55|0.05|0.55|0.05|
-
-Interestingly, there are slight drops at level 4, 6, 8, and 12.
 
 It's also notable the difference in hit rate between martial and non-martial classes - the non-martial can basically only score a critical hit on the natural 20. By contrast expert classes would mostly score a critical on a 19 or 20, and Fighters (and Gunslingers) mostly score criticals on a 17 or higher.
 
